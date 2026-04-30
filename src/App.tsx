@@ -1,21 +1,28 @@
-import { Button } from "@/components/ui/button"
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { AppLayout } from '@/components/AppLayout'
+import { Dashboard } from '@/pages/Dashboard'
+import { Products } from '@/pages/Products'
+import { Subscribers } from '@/pages/Subscribers'
+import { Plans } from '@/pages/Plans'
+import { Orders } from '@/pages/Orders'
+import { Settings } from '@/pages/Settings'
 
-export function App() {
+export default function App() {
   return (
-    <div className="flex min-h-svh p-6">
-      <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose">
-        <div>
-          <h1 className="font-medium">Project ready!</h1>
-          <p>You may now add components and start building.</p>
-          <p>We&apos;ve already added the button component for you.</p>
-          <Button className="mt-2">Button</Button>
-        </div>
-        <div className="font-mono text-xs text-muted-foreground">
-          (Press <kbd>d</kbd> to toggle dark mode)
-        </div>
-      </div>
-    </div>
+    <TooltipProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/subscribers" element={<Subscribers />} />
+            <Route path="/plans" element={<Plans />} />
+            <Route path="/orders" element={<Orders />} />
+            <Route path="/settings" element={<Settings />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </TooltipProvider>
   )
 }
-
-export default App
