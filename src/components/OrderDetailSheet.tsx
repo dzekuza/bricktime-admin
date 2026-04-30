@@ -27,7 +27,7 @@ const statusActions: { status: OrderStatus; label: string }[] = [
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-start justify-between gap-4 py-2.5">
+    <div className="flex items-start justify-between gap-4 px-3 py-2.5">
       <span className="text-sm text-muted-foreground shrink-0">{label}</span>
       <span className="text-sm font-medium text-right">{value}</span>
     </div>
