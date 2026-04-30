@@ -7,7 +7,9 @@ import {
   ShoppingCartIcon,
   SettingsIcon,
   BrickWallIcon,
+  LogOutIcon,
 } from 'lucide-react'
+import { useAuth } from '@/context/AuthContext'
 import {
   Sidebar,
   SidebarContent,
@@ -38,6 +40,7 @@ const navSecondary = [
 
 export function AppSidebar() {
   const { pathname } = useLocation()
+  const { session, signOut } = useAuth()
 
   function isActive(to: string) {
     return to === '/' ? pathname === '/' : pathname.startsWith(to)
@@ -107,12 +110,20 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" className="cursor-default">
               <Avatar className="size-8 rounded-lg">
-                <AvatarFallback className="rounded-lg">DZ</AvatarFallback>
+                <AvatarFallback className="rounded-lg">
+                  {session?.user.email?.[0].toUpperCase() ?? 'A'}
+                </AvatarFallback>
               </Avatar>
-              <div className="flex flex-col gap-0.5 leading-none">
-                <span className="font-semibold text-sm">dzekuza</span>
-                <span className="text-xs text-muted-foreground">dzekuza@gmail.com</span>
+              <div className="flex flex-col gap-0.5 leading-none min-w-0">
+                <span className="font-semibold text-sm truncate">{session?.user.email ?? ''}</span>
+                <span className="text-xs text-muted-foreground">Admin</span>
               </div>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={signOut} className="text-muted-foreground hover:text-destructive">
+              <LogOutIcon className="size-4" />
+              <span>Sign out</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

@@ -1,6 +1,9 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { AuthProvider } from '@/context/AuthContext'
+import { RequireAuth } from '@/components/RequireAuth'
 import { AppLayout } from '@/components/AppLayout'
+import { Login } from '@/pages/Login'
 import { Dashboard } from '@/pages/Dashboard'
 import { Products } from '@/pages/Products'
 import { Subscribers } from '@/pages/Subscribers'
@@ -12,16 +15,25 @@ export default function App() {
   return (
     <TooltipProvider>
       <BrowserRouter>
-        <Routes>
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/subscribers" element={<Subscribers />} />
-            <Route path="/plans" element={<Plans />} />
-            <Route path="/orders" element={<Orders />} />
-            <Route path="/settings" element={<Settings />} />
-          </Route>
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route
+              element={
+                <RequireAuth>
+                  <AppLayout />
+                </RequireAuth>
+              }
+            >
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/products" element={<Products />} />
+              <Route path="/subscribers" element={<Subscribers />} />
+              <Route path="/plans" element={<Plans />} />
+              <Route path="/orders" element={<Orders />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   )
