@@ -19,6 +19,7 @@ import {
 import { cn } from '@/lib/utils'
 
 // ── Selection column helper ─────────────────────────────────────────────────
+// eslint-disable-next-line react-refresh/only-export-components
 export function selectionColumn<TData>(): ColumnDef<TData> {
   return {
     id: 'select',
@@ -68,6 +69,7 @@ export function DataTable<TData>({
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [rowSelection, setRowSelection] = React.useState({})
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,
