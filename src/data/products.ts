@@ -16,6 +16,7 @@ export interface Product {
   bricks: number
   minifigs: string
   build_time?: string
+  value?: number
   rating?: string
   tier: Tier
   status: ProductStatus

@@ -45,6 +45,7 @@ const BLANK: Omit<Product, 'id'> = {
   bricks: 0,
   minifigs: '1 minifig',
   build_time: '',
+  value: 0,
   tier: 'standard',
   status: 'available',
   gallery: [],
@@ -225,7 +226,7 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="bricks">Brick count</Label>
                   <Input
@@ -236,6 +237,20 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
                     onChange={(e) => set('bricks', Number(e.target.value))}
                   />
                 </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="value">Rental value (€)</Label>
+                  <Input
+                    id="value"
+                    type="number"
+                    placeholder="0"
+                    value={form.value || ''}
+                    onChange={(e) => set('value', Number(e.target.value))}
+                  />
+                  <p className="text-xs text-muted-foreground">Used to calculate how many products a subscriber can hold.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="minifigs">Minifigs</Label>
                   <Input id="minifigs" value={form.minifigs} onChange={(e) => set('minifigs', e.target.value)} />

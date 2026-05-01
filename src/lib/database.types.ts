@@ -179,6 +179,7 @@ export type Database = {
           brick_heights: number[]
           bricks: number
           build_time: string | null
+          value: number | null
           category: string
           created_at: string
           description: string | null
@@ -204,6 +205,7 @@ export type Database = {
           brick_heights?: number[]
           bricks: number
           build_time?: string | null
+          value?: number | null
           category: string
           created_at?: string
           description?: string | null
@@ -229,6 +231,7 @@ export type Database = {
           brick_heights?: number[]
           bricks?: number
           build_time?: string | null
+          value?: number | null
           category?: string
           created_at?: string
           description?: string | null
