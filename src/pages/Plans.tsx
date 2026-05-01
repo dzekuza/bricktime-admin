@@ -20,8 +20,9 @@ interface Plan {
   id: string
   name: string
   price: number
+  budget: number
   description: string
-  features: string[]
+  perks: string[]
   subscribers: number
   color: string
   badgeClass: string
@@ -31,9 +32,10 @@ const initialPlans: Plan[] = [
   {
     id: 'nano',
     name: 'Nano',
-    price: 7,
-    description: 'Perfect for beginners — one small set per month.',
-    features: ['1 set/month (up to 250 bricks)', 'Free shipping', 'Basic support'],
+    price: 9,
+    budget: 50,
+    description: 'Perfect for casual builders — small sets from the base catalogue.',
+    perks: ['Access to Nano catalogue', 'Hold 1 product at a time', 'Free shipping', 'Basic support'],
     subscribers: 142,
     color: '#F5F1EB',
     badgeClass: 'bg-secondary text-secondary-foreground',
@@ -41,9 +43,10 @@ const initialPlans: Plan[] = [
   {
     id: 'mini',
     name: 'Mini',
-    price: 12,
+    price: 14,
+    budget: 100,
     description: 'A step up — medium sets and minifig access.',
-    features: ['1 set/month (up to 300 bricks)', 'Minifig included', 'Free shipping', 'Email support'],
+    perks: ['Access to Mini catalogue', 'Hold up to 2 products', 'Minifigs included', 'Free shipping', 'Email support'],
     subscribers: 314,
     color: '#FFAEE7',
     badgeClass: 'bg-pink-100 text-pink-800',
@@ -51,9 +54,10 @@ const initialPlans: Plan[] = [
   {
     id: 'standard',
     name: 'Standard',
-    price: 19,
+    price: 24,
+    budget: 200,
     description: 'Most popular — full access to the main catalogue.',
-    features: ['1 set/month (up to 350 bricks)', 'Minifigs included', 'Free shipping', 'Priority support'],
+    perks: ['Access to Standard catalogue', 'Hold up to 3 products', 'Minifigs included', 'Free shipping', 'Priority support'],
     subscribers: 521,
     color: '#FFD731',
     badgeClass: 'bg-yellow-100 text-yellow-800',
@@ -61,9 +65,10 @@ const initialPlans: Plan[] = [
   {
     id: 'pro',
     name: 'Pro',
-    price: 28,
-    description: 'For serious builders — access to Pro and below.',
-    features: ['1 set/month (up to 400 bricks)', 'Exclusive minifigs', 'Free shipping', 'Priority support', 'Early access'],
+    price: 35,
+    budget: 400,
+    description: 'For serious builders — exclusive sets and early access.',
+    perks: ['Access to Pro catalogue', 'Hold up to 4 products', 'Exclusive minifigs', 'Free shipping', 'Priority support', 'Early access'],
     subscribers: 218,
     color: '#4DA2FF',
     badgeClass: 'bg-blue-100 text-blue-800',
@@ -71,9 +76,10 @@ const initialPlans: Plan[] = [
   {
     id: 'mega',
     name: 'Mega',
-    price: 49,
-    description: 'The full universe — every set, every month.',
-    features: ['1 set/month (any size)', 'All minifigs', 'Free express shipping', 'Dedicated support', 'Early access', 'Limited editions'],
+    price: 55,
+    budget: 600,
+    description: 'The full universe — every set, every perk.',
+    perks: ['Full catalogue access', 'Unlimited simultaneous products', 'All minifigs', 'Free express shipping', 'Dedicated support', 'Early access', 'Limited editions'],
     subscribers: 89,
     color: '#FB4903',
     badgeClass: 'bg-orange-100 text-orange-800',
@@ -83,8 +89,9 @@ const initialPlans: Plan[] = [
 const BLANK_PLAN: Omit<Plan, 'id'> = {
   name: '',
   price: 0,
+  budget: 0,
   description: '',
-  features: [''],
+  perks: [''],
   subscribers: 0,
   color: '#E2E8F0',
   badgeClass: 'bg-secondary text-secondary-foreground',
@@ -93,50 +100,51 @@ const BLANK_PLAN: Omit<Plan, 'id'> = {
 export function Plans() {
   const [plans, setPlans] = useState<Plan[]>(initialPlans)
 
-  // Edit price
   const [editTarget, setEditTarget] = useState<Plan | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [editPrice, setEditPrice] = useState('')
+  const [editBudget, setEditBudget] = useState('')
 
-  // Add plan
   const [addOpen, setAddOpen] = useState(false)
   const [addForm, setAddForm] = useState<Omit<Plan, 'id'>>(BLANK_PLAN)
-  const [newFeature, setNewFeature] = useState('')
+  const [newPerk, setNewPerk] = useState('')
 
   function openEdit(plan: Plan) {
     setEditTarget(plan)
     setEditPrice(String(plan.price))
+    setEditBudget(String(plan.budget))
     setEditOpen(true)
   }
 
   function handleSave() {
     if (!editTarget) return
     const price = Number(editPrice)
-    if (!isNaN(price) && price > 0) {
-      setPlans((prev) => prev.map((p) => p.id === editTarget.id ? { ...p, price } : p))
+    const budget = Number(editBudget)
+    if (!isNaN(price) && price > 0 && !isNaN(budget) && budget > 0) {
+      setPlans((prev) => prev.map((p) => p.id === editTarget.id ? { ...p, price, budget } : p))
     }
     setEditOpen(false)
   }
 
   function openAdd() {
     setAddForm(BLANK_PLAN)
-    setNewFeature('')
+    setNewPerk('')
     setAddOpen(true)
   }
 
-  function handleAddFeature() {
-    if (!newFeature.trim()) return
-    setAddForm((prev) => ({ ...prev, features: [...prev.features.filter(Boolean), newFeature.trim()] }))
-    setNewFeature('')
+  function handleAddPerk() {
+    if (!newPerk.trim()) return
+    setAddForm((prev) => ({ ...prev, perks: [...prev.perks.filter(Boolean), newPerk.trim()] }))
+    setNewPerk('')
   }
 
-  function removeFeature(i: number) {
-    setAddForm((prev) => ({ ...prev, features: prev.features.filter((_, idx) => idx !== i) }))
+  function removePerk(i: number) {
+    setAddForm((prev) => ({ ...prev, perks: prev.perks.filter((_, idx) => idx !== i) }))
   }
 
   function handleAddPlan() {
     const id = addForm.name.toLowerCase().replace(/\s+/g, '-')
-    setPlans((prev) => [...prev, { ...addForm, id, features: addForm.features.filter(Boolean) }])
+    setPlans((prev) => [...prev, { ...addForm, id, perks: addForm.perks.filter(Boolean) }])
     setAddOpen(false)
   }
 
@@ -180,18 +188,27 @@ export function Plans() {
             </CardHeader>
 
             <CardContent className="flex flex-1 flex-col gap-4">
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-bold">€{plan.price}</span>
-                <span className="text-sm text-muted-foreground">/mo</span>
+              <div className="flex items-end justify-between gap-3">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-bold">€{plan.price}</span>
+                  <span className="text-sm text-muted-foreground">/mo</span>
+                </div>
+                <div
+                  className="flex items-center gap-1.5 rounded-full border px-3 py-1"
+                  style={{ background: plan.color, borderColor: 'rgba(0,0,0,0.12)' }}
+                >
+                  <span className="text-xs font-semibold text-foreground">€{plan.budget}</span>
+                  <span className="text-xs text-muted-foreground">budget</span>
+                </div>
               </div>
 
               <Separator />
 
               <ul className="flex flex-col gap-1.5">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-sm">
+                {plan.perks.map((perk) => (
+                  <li key={perk} className="flex items-center gap-2 text-sm">
                     <CheckIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                    {f}
+                    {perk}
                   </li>
                 ))}
               </ul>
@@ -205,22 +222,37 @@ export function Plans() {
         ))}
       </div>
 
-      {/* Edit price dialog */}
+      {/* Edit dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Edit {editTarget?.name} plan</DialogTitle>
-            <DialogDescription>Update the monthly price for this plan.</DialogDescription>
+            <DialogDescription>Update the monthly price and rental budget.</DialogDescription>
           </DialogHeader>
-          <div className="flex flex-col gap-1.5 py-2">
-            <Label htmlFor="price">Monthly price (€)</Label>
-            <Input
-              id="price"
-              type="number"
-              min={1}
-              value={editPrice}
-              onChange={(e) => setEditPrice(e.target.value)}
-            />
+          <div className="flex flex-col gap-4 py-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="edit-price">Monthly price (€)</Label>
+              <Input
+                id="edit-price"
+                type="number"
+                min={1}
+                value={editPrice}
+                onChange={(e) => setEditPrice(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="edit-budget">Rental budget (€/mo)</Label>
+              <p className="text-xs text-muted-foreground -mt-0.5">
+                How much subscribers can spend on active rentals at once.
+              </p>
+              <Input
+                id="edit-budget"
+                type="number"
+                min={1}
+                value={editBudget}
+                onChange={(e) => setEditBudget(e.target.value)}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
@@ -237,8 +269,8 @@ export function Plans() {
             <DialogDescription>Create a new subscription tier.</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4 py-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1.5">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-3 flex flex-col gap-1.5">
                 <Label htmlFor="plan-name">Name</Label>
                 <Input
                   id="plan-name"
@@ -258,6 +290,17 @@ export function Plans() {
                   onChange={(e) => setAddForm((p) => ({ ...p, price: Number(e.target.value) }))}
                 />
               </div>
+              <div className="col-span-2 flex flex-col gap-1.5">
+                <Label htmlFor="plan-budget">Rental budget (€/mo)</Label>
+                <Input
+                  id="plan-budget"
+                  type="number"
+                  min={1}
+                  placeholder="0"
+                  value={addForm.budget || ''}
+                  onChange={(e) => setAddForm((p) => ({ ...p, budget: Number(e.target.value) }))}
+                />
+              </div>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="plan-desc">Description</Label>
@@ -270,23 +313,23 @@ export function Plans() {
             </div>
             <Separator />
             <div className="flex flex-col gap-2">
-              <Label>Features</Label>
-              {addForm.features.filter(Boolean).map((f, i) => (
+              <Label>Perks</Label>
+              {addForm.perks.filter(Boolean).map((perk, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <span className="flex-1 text-sm rounded-md border px-3 py-2 bg-muted/40">{f}</span>
-                  <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={() => removeFeature(i)}>
+                  <span className="flex-1 text-sm rounded-md border px-3 py-2 bg-muted/40">{perk}</span>
+                  <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={() => removePerk(i)}>
                     <XIcon className="size-3.5" />
                   </Button>
                 </div>
               ))}
               <div className="flex gap-2">
                 <Input
-                  placeholder="Add a feature…"
-                  value={newFeature}
-                  onChange={(e) => setNewFeature(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddFeature())}
+                  placeholder="Add a perk…"
+                  value={newPerk}
+                  onChange={(e) => setNewPerk(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddPerk())}
                 />
-                <Button variant="outline" size="sm" onClick={handleAddFeature}>Add</Button>
+                <Button variant="outline" size="sm" onClick={handleAddPerk}>Add</Button>
               </div>
             </div>
           </div>
@@ -294,7 +337,7 @@ export function Plans() {
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
             <Button
               onClick={handleAddPlan}
-              disabled={!addForm.name.trim() || addForm.price <= 0}
+              disabled={!addForm.name.trim() || addForm.price <= 0 || addForm.budget <= 0}
             >
               Create plan
             </Button>

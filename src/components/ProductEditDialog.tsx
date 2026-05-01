@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { ImagePlusIcon, XIcon, UploadIcon } from 'lucide-react'
+import { ImagePlusIcon, XIcon, UploadIcon, Loader2Icon } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -53,6 +54,8 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
   const [form, setForm] = useState<Product>({ id: nextId, ...BLANK })
   const [galleryInput, setGalleryInput] = useState('')
   const [coverDragging, setCoverDragging] = useState(false)
+  const [coverUploading, setCoverUploading] = useState(false)
+  const [galleryUploading, setGalleryUploading] = useState(false)
   const coverInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -65,10 +68,23 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
-  // Cover image: simulate file pick → use object URL for preview
-  function handleCoverFile(file: File) {
-    const url = URL.createObjectURL(file)
-    set('image', url)
+  async function uploadToStorage(file: File): Promise<string> {
+    const ext = file.name.split('.').pop()
+    const path = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+    const { error } = await supabase.storage.from('products').upload(path, file)
+    if (error) throw error
+    const { data } = supabase.storage.from('products').getPublicUrl(path)
+    return data.publicUrl
+  }
+
+  async function handleCoverFile(file: File) {
+    setCoverUploading(true)
+    try {
+      const url = await uploadToStorage(file)
+      set('image', url)
+    } finally {
+      setCoverUploading(false)
+    }
   }
 
   function handleCoverDrop(e: React.DragEvent) {
@@ -86,11 +102,17 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
     setGalleryInput('')
   }
 
-  function handleGalleryFile(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleGalleryFile(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
-    const urls = files.map((f) => URL.createObjectURL(f))
-    set('gallery', [...(form.gallery ?? []), ...urls])
     e.target.value = ''
+    if (!files.length) return
+    setGalleryUploading(true)
+    try {
+      const urls = await Promise.all(files.map(uploadToStorage))
+      set('gallery', [...(form.gallery ?? []), ...urls])
+    } finally {
+      setGalleryUploading(false)
+    }
   }
 
   function removeGalleryItem(i: number) {
@@ -254,6 +276,13 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
                   </div>
                 )}
 
+                {coverUploading && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2Icon className="size-4 animate-spin" />
+                    Uploading…
+                  </div>
+                )}
+
                 <input
                   ref={coverInputRef}
                   type="file"
@@ -309,6 +338,13 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
                     </div>
                     <input type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryFile} />
                   </label>
+                )}
+
+                {galleryUploading && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2Icon className="size-4 animate-spin" />
+                    Uploading…
+                  </div>
                 )}
 
                 <div className="flex gap-2">
