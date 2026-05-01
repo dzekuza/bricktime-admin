@@ -1,10 +1,12 @@
 export type Tier = 'nano' | 'mini' | 'standard' | 'pro' | 'mega'
 export type ProductStatus = 'available' | 'sold_out' | 'limited'
 
-export interface FaqItem {
-  q: string
-  a: string
-}
+export interface FaqItem { q: string; a: string }
+export interface BagItem { num: string; label: string; desc: string; bg: string }
+export interface KitItem { title: string; body: string }
+export interface StorySection { headline: string; body: string[]; image_url: string | null; author_name: string; author_role: string }
+export interface MinifigSection { name: string; description: string; image_url: string | null; edition: string; kit_headline: string; kit_items: KitItem[] }
+export interface CompatItem { drop: string; title: string; desc: string; bg: string }
 
 export interface Product {
   id: number
@@ -23,6 +25,10 @@ export interface Product {
   image_url?: string | null
   gallery?: string[]
   faq?: FaqItem[]
+  bags?: BagItem[]
+  story?: StorySection | null
+  minifig?: MinifigSection | null
+  compatibility?: CompatItem[]
 }
 
 export const products: Product[] = []

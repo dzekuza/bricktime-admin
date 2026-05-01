@@ -43,7 +43,7 @@ export function Products() {
   useEffect(() => {
     supabase
       .from('products')
-      .select('id, title, subtitle, description, category, year, bricks, minifigs, build_time, value, rating, tier, status, image_url, gallery, faq')
+      .select('id, title, subtitle, description, category, year, bricks, minifigs, build_time, value, rating, tier, status, image_url, gallery, faq, bags, story, minifig, compatibility')
       .order('id')
       .then(({ data }) => {
         if (data) setItems(data as Product[])

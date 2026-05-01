@@ -22,7 +22,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
-import { type Product, type Tier, type ProductStatus } from '@/data/products'
+import { type Product, type Tier, type ProductStatus, type BagItem, type CompatItem, type KitItem } from '@/data/products'
 
 interface ProductEditDialogProps {
   product: Product | null
@@ -50,6 +50,10 @@ const BLANK: Omit<Product, 'id'> = {
   status: 'available',
   gallery: [],
   faq: [],
+  bags: [],
+  story: null,
+  minifig: null,
+  compatibility: [],
 }
 
 export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId = 0 }: ProductEditDialogProps) {
@@ -57,6 +61,9 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
   const [form, setForm] = useState<Product>({ id: nextId, ...BLANK })
   const [galleryInput, setGalleryInput] = useState('')
   const [faqDraft, setFaqDraft] = useState<{ q: string; a: string }>({ q: '', a: '' })
+  const [bagDraft, setBagDraft] = useState<BagItem>({ num: '', label: '', desc: '', bg: '#F5F1EB' })
+  const [compatDraft, setCompatDraft] = useState<CompatItem>({ drop: '', title: '', desc: '', bg: '#F5F1EB' })
+  const [kitDraft, setKitDraft] = useState<KitItem>({ title: '', body: '' })
   const [coverDragging, setCoverDragging] = useState(false)
   const [galleryDragging, setGalleryDragging] = useState(false)
   const [coverUploading, setCoverUploading] = useState(false)
@@ -66,9 +73,12 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
 
   useEffect(() => {
     if (!open) return
-    setForm(product ? { ...product, gallery: product.gallery ?? [], faq: product.faq ?? [] } : { id: nextId, ...BLANK })
+    setForm(product ? { ...product, gallery: product.gallery ?? [], faq: product.faq ?? [], bags: product.bags ?? [], compatibility: product.compatibility ?? [] } : { id: nextId, ...BLANK })
     setGalleryInput('')
     setFaqDraft({ q: '', a: '' })
+    setBagDraft({ num: '', label: '', desc: '', bg: '#F5F1EB' })
+    setCompatDraft({ drop: '', title: '', desc: '', bg: '#F5F1EB' })
+    setKitDraft({ title: '', body: '' })
   }, [open, product, nextId])
 
   function set<K extends keyof Product>(key: K, value: Product[K]) {
@@ -150,6 +160,47 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
     set('faq', (form.faq ?? []).filter((_, idx) => idx !== i))
   }
 
+  function addBag() {
+    if (!bagDraft.num.trim() || !bagDraft.label.trim()) return
+    set('bags', [...(form.bags ?? []), { ...bagDraft }])
+    setBagDraft({ num: '', label: '', desc: '', bg: '#F5F1EB' })
+  }
+  function removeBag(i: number) { set('bags', (form.bags ?? []).filter((_, idx) => idx !== i)) }
+
+  function addCompat() {
+    if (!compatDraft.drop.trim() || !compatDraft.title.trim()) return
+    set('compatibility', [...(form.compatibility ?? []), { ...compatDraft }])
+    setCompatDraft({ drop: '', title: '', desc: '', bg: '#F5F1EB' })
+  }
+  function removeCompat(i: number) { set('compatibility', (form.compatibility ?? []).filter((_, idx) => idx !== i)) }
+
+  function setStory<K extends keyof NonNullable<Product['story']>>(key: K, value: NonNullable<Product['story']>[K]) {
+    const base = form.story ?? { headline: '', body: [''], image_url: null, author_name: '', author_role: '' }
+    set('story', { ...base, [key]: value })
+  }
+  function setStoryBody(i: number, value: string) {
+    const body = [...(form.story?.body ?? [''])]
+    body[i] = value
+    setStory('body', body)
+  }
+  function addStoryParagraph() { setStory('body', [...(form.story?.body ?? ['']), '']) }
+  function removeStoryParagraph(i: number) { setStory('body', (form.story?.body ?? ['']).filter((_, idx) => idx !== i)) }
+
+  function setMinifig<K extends keyof NonNullable<Product['minifig']>>(key: K, value: NonNullable<Product['minifig']>[K]) {
+    const base = form.minifig ?? { name: '', description: '', image_url: null, edition: '', kit_headline: '', kit_items: [] }
+    set('minifig', { ...base, [key]: value })
+  }
+  function addKitItem() {
+    if (!kitDraft.title.trim()) return
+    const base = form.minifig ?? { name: '', description: '', image_url: null, edition: '', kit_headline: '', kit_items: [] }
+    set('minifig', { ...base, kit_items: [...base.kit_items, { ...kitDraft }] })
+    setKitDraft({ title: '', body: '' })
+  }
+  function removeKitItem(i: number) {
+    const base = form.minifig!
+    set('minifig', { ...base, kit_items: base.kit_items.filter((_, idx) => idx !== i) })
+  }
+
   function handleSave() {
     onSave(form)
     onOpenChange(false)
@@ -171,6 +222,7 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
           <TabsList className="mx-6 mt-4 w-fit">
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="media">Media</TabsTrigger>
+            <TabsTrigger value="content">Content</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
 
@@ -480,6 +532,138 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
                   <Button variant="outline" size="sm" onClick={addGalleryUrl}>Add</Button>
                 </div>
               </div>
+            </div>
+          </TabsContent>
+
+          {/* ── Content tab ──────────────────────────────────────────── */}
+          <TabsContent value="content" className="flex-1 overflow-y-auto px-6 py-5">
+            <div className="flex flex-col gap-7">
+
+              {/* Bags */}
+              <div className="flex flex-col gap-3">
+                <div>
+                  <p className="font-semibold text-sm">What's in the bag</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Up to 4 bag tiles shown on the product page.</p>
+                </div>
+                {(form.bags ?? []).map((bag, i) => (
+                  <div key={i} className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+                    <div className="w-6 h-6 rounded border flex-none mt-0.5" style={{ background: bag.bg }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-mono font-bold">Bag {bag.num}</p>
+                      <p className="truncate font-medium">{bag.label}</p>
+                      {bag.desc && <p className="text-muted-foreground truncate">{bag.desc}</p>}
+                    </div>
+                    <Button variant="ghost" size="icon" className="flex-none" onClick={() => removeBag(i)}><XIcon className="size-3.5" /></Button>
+                  </div>
+                ))}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col gap-1"><Label className="text-xs">Bag №</Label><Input placeholder="01" value={bagDraft.num} onChange={e => setBagDraft(d => ({ ...d, num: e.target.value }))} /></div>
+                  <div className="flex flex-col gap-1"><Label className="text-xs">Color</Label><Input type="color" value={bagDraft.bg} onChange={e => setBagDraft(d => ({ ...d, bg: e.target.value }))} className="h-9 px-1 py-1" /></div>
+                  <div className="flex flex-col gap-1 col-span-2"><Label className="text-xs">Label</Label><Input placeholder="Foundation row. Street level." value={bagDraft.label} onChange={e => setBagDraft(d => ({ ...d, label: e.target.value }))} /></div>
+                  <div className="flex flex-col gap-1 col-span-2"><Label className="text-xs">Description</Label><Input placeholder="Short bag description…" value={bagDraft.desc} onChange={e => setBagDraft(d => ({ ...d, desc: e.target.value }))} /></div>
+                </div>
+                <Button variant="outline" size="sm" onClick={addBag} disabled={(form.bags?.length ?? 0) >= 4}>Add bag</Button>
+              </div>
+
+              <Separator />
+
+              {/* Story */}
+              <div className="flex flex-col gap-3">
+                <div>
+                  <p className="font-semibold text-sm">Story section</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Editorial text shown alongside an art image.</p>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Headline</Label>
+                  <Input placeholder="Otto has been delivering mail…" value={form.story?.headline ?? ''} onChange={e => setStory('headline', e.target.value)} />
+                </div>
+                {(form.story?.body ?? ['']).map((para, i) => (
+                  <div key={i} className="flex gap-2 items-start">
+                    <Textarea placeholder={`Paragraph ${i + 1}…`} rows={3} className="flex-1 text-sm" value={para} onChange={e => setStoryBody(i, e.target.value)} />
+                    {(form.story?.body?.length ?? 1) > 1 && (
+                      <Button variant="ghost" size="icon" className="mt-1 flex-none" onClick={() => removeStoryParagraph(i)}><XIcon className="size-3.5" /></Button>
+                    )}
+                  </div>
+                ))}
+                <Button variant="outline" size="sm" onClick={addStoryParagraph}>+ Add paragraph</Button>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Art image URL</Label>
+                  <Input placeholder="https://…" value={form.story?.image_url ?? ''} onChange={e => setStory('image_url', e.target.value || null)} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col gap-1"><Label className="text-xs">Author name</Label><Input placeholder="Marek Polčák" value={form.story?.author_name ?? ''} onChange={e => setStory('author_name', e.target.value)} /></div>
+                  <div className="flex flex-col gap-1"><Label className="text-xs">Author role</Label><Input placeholder="Senior brick designer" value={form.story?.author_role ?? ''} onChange={e => setStory('author_role', e.target.value)} /></div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Minifig */}
+              <div className="flex flex-col gap-3">
+                <div>
+                  <p className="font-semibold text-sm">Exclusive minifig</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Featured character with kit list.</p>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col gap-1"><Label className="text-xs">Name</Label><Input placeholder="Postman Otto" value={form.minifig?.name ?? ''} onChange={e => setMinifig('name', e.target.value)} /></div>
+                  <div className="flex flex-col gap-1"><Label className="text-xs">Edition (e.g. 3,500)</Label><Input placeholder="3,500" value={form.minifig?.edition ?? ''} onChange={e => setMinifig('edition', e.target.value)} /></div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Description</Label>
+                  <Textarea placeholder="Numbered, never re-released…" rows={2} className="text-sm" value={form.minifig?.description ?? ''} onChange={e => setMinifig('description', e.target.value)} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Minifig image URL</Label>
+                  <Input placeholder="https://…" value={form.minifig?.image_url ?? ''} onChange={e => setMinifig('image_url', e.target.value || null)} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label className="text-xs">Kit headline</Label>
+                  <Input placeholder="Mail satchel, folding bike, printed lanyard." value={form.minifig?.kit_headline ?? ''} onChange={e => setMinifig('kit_headline', e.target.value)} />
+                </div>
+                {(form.minifig?.kit_items ?? []).map((item, i) => (
+                  <div key={i} className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium">{item.title}</p>
+                      {item.body && <p className="text-muted-foreground text-xs mt-0.5">{item.body}</p>}
+                    </div>
+                    <Button variant="ghost" size="icon" className="flex-none" onClick={() => removeKitItem(i)}><XIcon className="size-3.5" /></Button>
+                  </div>
+                ))}
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-1"><Label className="text-xs">Kit item title</Label><Input placeholder="Removable satchel piece" value={kitDraft.title} onChange={e => setKitDraft(d => ({ ...d, title: e.target.value }))} /></div>
+                  <div className="flex flex-col gap-1"><Label className="text-xs">Kit item description</Label><Textarea placeholder="Short description…" rows={2} className="text-sm" value={kitDraft.body} onChange={e => setKitDraft(d => ({ ...d, body: e.target.value }))} /></div>
+                </div>
+                <Button variant="outline" size="sm" onClick={addKitItem}>Add kit item</Button>
+              </div>
+
+              <Separator />
+
+              {/* Compatibility */}
+              <div className="flex flex-col gap-3">
+                <div>
+                  <p className="font-semibold text-sm">Compatibility</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Other products this one connects with.</p>
+                </div>
+                {(form.compatibility ?? []).map((c, i) => (
+                  <div key={i} className="flex items-start gap-2 rounded-lg border p-3 text-sm">
+                    <div className="w-6 h-6 rounded border flex-none mt-0.5" style={{ background: c.bg }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-mono font-bold text-xs">{c.drop}</p>
+                      <p className="font-medium">{c.title}</p>
+                      {c.desc && <p className="text-muted-foreground truncate text-xs">{c.desc}</p>}
+                    </div>
+                    <Button variant="ghost" size="icon" className="flex-none" onClick={() => removeCompat(i)}><XIcon className="size-3.5" /></Button>
+                  </div>
+                ))}
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex flex-col gap-1"><Label className="text-xs">Drop code (e.g. ⬢ Drop 14)</Label><Input placeholder="⬢ Drop 14" value={compatDraft.drop} onChange={e => setCompatDraft(d => ({ ...d, drop: e.target.value }))} /></div>
+                  <div className="flex flex-col gap-1"><Label className="text-xs">Color</Label><Input type="color" value={compatDraft.bg} onChange={e => setCompatDraft(d => ({ ...d, bg: e.target.value }))} className="h-9 px-1 py-1" /></div>
+                  <div className="flex flex-col gap-1 col-span-2"><Label className="text-xs">Title</Label><Input placeholder="Transit Bus Line" value={compatDraft.title} onChange={e => setCompatDraft(d => ({ ...d, title: e.target.value }))} /></div>
+                  <div className="flex flex-col gap-1 col-span-2"><Label className="text-xs">Description</Label><Input placeholder="Connects via the brass hinge pin…" value={compatDraft.desc} onChange={e => setCompatDraft(d => ({ ...d, desc: e.target.value }))} /></div>
+                </div>
+                <Button variant="outline" size="sm" onClick={addCompat}>Add compatible product</Button>
+              </div>
+
             </div>
           </TabsContent>
 
