@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { MoreHorizontalIcon, PlusIcon, SearchIcon, Trash2Icon } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Button } from '@/components/ui/button'
@@ -20,13 +20,15 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { products as initialProducts, tierColors, statusColors, type Product, type Tier, type ProductStatus } from '@/data/products'
+import { tierColors, statusColors, type Product, type Tier, type ProductStatus } from '@/data/products'
 import { DataTable, SortableHeader, selectionColumn } from '@/components/DataTable'
 import { ProductEditDialog } from '@/components/ProductEditDialog'
 import { DeleteDialog } from '@/components/DeleteDialog'
+import { supabase } from '@/lib/supabase'
 
 export function Products() {
-  const [items, setItems] = useState<Product[]>(initialProducts)
+  const [items, setItems] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [tierFilter, setTierFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -38,6 +40,17 @@ export function Products() {
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
+  useEffect(() => {
+    supabase
+      .from('products')
+      .select('id, title, subtitle, description, category, year, bricks, minifigs, rating, tier, status, image_url, gallery')
+      .order('id')
+      .then(({ data }) => {
+        if (data) setItems(data as Product[])
+        setLoading(false)
+      })
+  }, [])
+
   const filtered = useMemo(() => items.filter((p) => {
     const matchesSearch =
       p.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -47,23 +60,31 @@ export function Products() {
     return matchesSearch && matchesTier && matchesStatus
   }), [items, search, tierFilter, statusFilter])
 
-  function handleSave(updated: Product) {
-    setItems((prev) => {
-      const exists = prev.some((p) => p.id === updated.id)
-      return exists ? prev.map((p) => p.id === updated.id ? updated : p) : [updated, ...prev]
-    })
+  async function handleSave(updated: Product) {
+    const { id, ...fields } = updated
+    if (items.some((p) => p.id === id)) {
+      await supabase.from('products').update(fields).eq('id', id)
+      setItems((prev) => prev.map((p) => p.id === id ? updated : p))
+    } else {
+      const { data } = await supabase.from('products').insert({ id, ...fields }).select().single()
+      if (data) setItems((prev) => [data as Product, ...prev])
+    }
   }
 
-  function handleDuplicate(product: Product) {
+  async function handleDuplicate(product: Product) {
     const maxId = Math.max(...items.map((p) => p.id))
-    setItems((prev) => [{ ...product, id: maxId + 1, title: `${product.title} (copy)`, status: 'available' as ProductStatus }, ...prev])
+    const newProduct = { ...product, id: maxId + 1, title: `${product.title} (copy)`, status: 'available' as ProductStatus }
+    const { data } = await supabase.from('products').insert(newProduct).select().single()
+    if (data) setItems((prev) => [data as Product, ...prev])
   }
 
-  function handleSetStatus(ids: number[], status: ProductStatus) {
+  async function handleSetStatus(ids: number[], status: ProductStatus) {
+    await supabase.from('products').update({ status }).in('id', ids)
     setItems((prev) => prev.map((p) => ids.includes(p.id) ? { ...p, status } : p))
   }
 
-  function handleDelete(ids: number[]) {
+  async function handleDelete(ids: number[]) {
+    await supabase.from('products').delete().in('id', ids)
     setItems((prev) => prev.filter((p) => !ids.includes(p.id)))
   }
 
@@ -92,9 +113,14 @@ export function Products() {
       accessorKey: 'title',
       header: ({ column }) => <SortableHeader column={column}>Product</SortableHeader>,
       cell: ({ row }) => (
-        <div className="flex flex-col gap-0.5">
-          <span className="font-medium">{row.original.title}</span>
-          <span className="text-xs text-muted-foreground">{row.original.subtitle}</span>
+        <div className="flex items-center gap-3">
+          {row.original.image_url && (
+            <img src={row.original.image_url} alt="" className="size-9 rounded object-cover shrink-0" />
+          )}
+          <div className="flex flex-col gap-0.5">
+            <span className="font-medium">{row.original.title}</span>
+            <span className="text-xs text-muted-foreground">{row.original.subtitle}</span>
+          </div>
         </div>
       ),
     },
@@ -137,7 +163,7 @@ export function Products() {
       header: 'Status',
       cell: ({ getValue }) => {
         const v = getValue<ProductStatus>()
-        return <Badge className={cn('capitalize', statusColors[v])}>{v}</Badge>
+        return <Badge className={cn('capitalize', statusColors[v])}>{v.replace('_', ' ')}</Badge>
       },
       size: 110,
     },
@@ -164,8 +190,8 @@ export function Products() {
                 {product.status !== 'available' && (
                   <DropdownMenuItem onSelect={() => handleSetStatus([product.id], 'available')}>Mark as available</DropdownMenuItem>
                 )}
-                {product.status !== 'sold-out' && (
-                  <DropdownMenuItem onSelect={() => handleSetStatus([product.id], 'sold-out')}>Mark as sold out</DropdownMenuItem>
+                {product.status !== 'sold_out' && (
+                  <DropdownMenuItem onSelect={() => handleSetStatus([product.id], 'sold_out')}>Mark as sold out</DropdownMenuItem>
                 )}
                 {product.status !== 'limited' && (
                   <DropdownMenuItem onSelect={() => handleSetStatus([product.id], 'limited')}>Mark as limited</DropdownMenuItem>
@@ -198,7 +224,6 @@ export function Products() {
         </Button>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <SearchIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -229,39 +254,43 @@ export function Products() {
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
             <SelectItem value="available">Available</SelectItem>
-            <SelectItem value="sold-out">Sold out</SelectItem>
+            <SelectItem value="sold_out">Sold out</SelectItem>
             <SelectItem value="limited">Limited</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      <DataTable
-        data={filtered}
-        columns={columns}
-        onRowClick={openEdit}
-        renderBulkActions={(rows, clear) => (
-          <>
-            <Button variant="outline" size="sm" onClick={() => { handleSetStatus(rows.map(r => r.id), 'available'); clear() }}>
-              Mark available
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => { handleSetStatus(rows.map(r => r.id), 'sold-out'); clear() }}>
-              Mark sold out
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => { handleSetStatus(rows.map(r => r.id), 'limited'); clear() }}>
-              Mark limited
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-destructive border-destructive/30 hover:bg-destructive/5"
-              onClick={() => { handleDelete(rows.map(r => r.id)); clear() }}
-            >
-              <Trash2Icon className="size-3.5 mr-1" />
-              Delete
-            </Button>
-          </>
-        )}
-      />
+      {loading ? (
+        <div className="py-20 text-center text-muted-foreground text-sm">Loading products…</div>
+      ) : (
+        <DataTable
+          data={filtered}
+          columns={columns}
+          onRowClick={openEdit}
+          renderBulkActions={(rows, clear) => (
+            <>
+              <Button variant="outline" size="sm" onClick={() => { handleSetStatus(rows.map(r => r.id), 'available'); clear() }}>
+                Mark available
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => { handleSetStatus(rows.map(r => r.id), 'sold_out'); clear() }}>
+                Mark sold out
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => { handleSetStatus(rows.map(r => r.id), 'limited'); clear() }}>
+                Mark limited
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive border-destructive/30 hover:bg-destructive/5"
+                onClick={() => { handleDelete(rows.map(r => r.id)); clear() }}
+              >
+                <Trash2Icon className="size-3.5 mr-1" />
+                Delete
+              </Button>
+            </>
+          )}
+        />
+      )}
 
       <p className="text-xs text-muted-foreground">
         Showing {filtered.length} of {items.length} products
@@ -272,7 +301,7 @@ export function Products() {
         open={addOpen}
         onOpenChange={setAddOpen}
         onSave={handleSave}
-        nextId={Math.max(...items.map((p) => p.id)) + 1}
+        nextId={items.length ? Math.max(...items.map((p) => p.id)) + 1 : 1}
       />
       <ProductEditDialog
         product={editTarget}

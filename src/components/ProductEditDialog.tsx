@@ -34,7 +34,7 @@ interface ProductEditDialogProps {
 
 const CATEGORIES = ['Cityscape', 'Nature', 'Vehicles', 'Sci-fi', 'Architecture', 'Fantasy']
 const TIERS: Tier[] = ['nano', 'mini', 'standard', 'pro', 'mega']
-const STATUSES: ProductStatus[] = ['available', 'sold-out', 'limited']
+const STATUSES: ProductStatus[] = ['available', 'sold_out', 'limited']
 
 const BLANK: Omit<Product, 'id'> = {
   title: '',
@@ -81,7 +81,7 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
     setCoverUploading(true)
     try {
       const url = await uploadToStorage(file)
-      set('image', url)
+      set('image_url', url)
     } finally {
       setCoverUploading(false)
     }
@@ -231,10 +231,10 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
               <div className="flex flex-col gap-2">
                 <Label>Cover image</Label>
 
-                {form.image ? (
+                {form.image_url ? (
                   <div className="relative group rounded-xl overflow-hidden border aspect-video bg-muted">
                     <img
-                      src={form.image}
+                      src={form.image_url}
                       alt="Cover"
                       className="w-full h-full object-cover"
                     />
@@ -250,7 +250,7 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
                       <Button
                         size="sm"
                         variant="secondary"
-                        onClick={() => set('image', undefined)}
+                        onClick={() => set('image_url', undefined)}
                       >
                         <XIcon className="size-3.5 mr-1.5" />
                         Remove
@@ -294,8 +294,8 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
                 <div className="flex gap-2">
                   <Input
                     placeholder="Or paste image URL…"
-                    value={form.image?.startsWith('blob:') ? '' : (form.image ?? '')}
-                    onChange={(e) => set('image', e.target.value || undefined)}
+                    value={form.image_url?.startsWith('blob:') ? '' : (form.image_url ?? '')}
+                    onChange={(e) => set('image_url', e.target.value || undefined)}
                   />
                 </div>
               </div>

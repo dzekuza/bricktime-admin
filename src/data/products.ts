@@ -1,5 +1,5 @@
 export type Tier = 'nano' | 'mini' | 'standard' | 'pro' | 'mega'
-export type ProductStatus = 'available' | 'sold-out' | 'limited'
+export type ProductStatus = 'available' | 'sold_out' | 'limited'
 
 export interface Product {
   id: number
@@ -13,7 +13,7 @@ export interface Product {
   rating?: string
   tier: Tier
   status: ProductStatus
-  image?: string
+  image_url?: string | null
   gallery?: string[]
 }
 
@@ -29,6 +29,6 @@ export const tierColors: Record<Tier, string> = {
 
 export const statusColors: Record<ProductStatus, string> = {
   available: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-  'sold-out': 'bg-muted text-muted-foreground',
+  sold_out: 'bg-muted text-muted-foreground',
   limited: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
 }
