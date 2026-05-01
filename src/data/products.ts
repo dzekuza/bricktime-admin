@@ -1,6 +1,11 @@
 export type Tier = 'nano' | 'mini' | 'standard' | 'pro' | 'mega'
 export type ProductStatus = 'available' | 'sold_out' | 'limited'
 
+export interface FaqItem {
+  q: string
+  a: string
+}
+
 export interface Product {
   id: number
   title: string
@@ -10,11 +15,13 @@ export interface Product {
   year: number
   bricks: number
   minifigs: string
+  build_time?: string
   rating?: string
   tier: Tier
   status: ProductStatus
   image_url?: string | null
   gallery?: string[]
+  faq?: FaqItem[]
 }
 
 export const products: Product[] = []

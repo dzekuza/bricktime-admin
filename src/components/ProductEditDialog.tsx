@@ -22,7 +22,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
-import { type Product, type Tier, type ProductStatus } from '@/data/products'
+import { type Product, type Tier, type ProductStatus, type FaqItem } from '@/data/products'
 
 interface ProductEditDialogProps {
   product: Product | null
@@ -44,15 +44,18 @@ const BLANK: Omit<Product, 'id'> = {
   year: new Date().getFullYear(),
   bricks: 0,
   minifigs: '1 minifig',
+  build_time: '',
   tier: 'standard',
   status: 'available',
   gallery: [],
+  faq: [],
 }
 
 export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId = 0 }: ProductEditDialogProps) {
   const isAdd = product === null
   const [form, setForm] = useState<Product>({ id: nextId, ...BLANK })
   const [galleryInput, setGalleryInput] = useState('')
+  const [faqDraft, setFaqDraft] = useState<{ q: string; a: string }>({ q: '', a: '' })
   const [coverDragging, setCoverDragging] = useState(false)
   const [coverUploading, setCoverUploading] = useState(false)
   const [galleryUploading, setGalleryUploading] = useState(false)
@@ -60,8 +63,9 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
 
   useEffect(() => {
     if (!open) return
-    setForm(product ? { ...product, gallery: product.gallery ?? [] } : { id: nextId, ...BLANK })
+    setForm(product ? { ...product, gallery: product.gallery ?? [], faq: product.faq ?? [] } : { id: nextId, ...BLANK })
     setGalleryInput('')
+    setFaqDraft({ q: '', a: '' })
   }, [open, product, nextId])
 
   function set<K extends keyof Product>(key: K, value: Product[K]) {
@@ -117,6 +121,16 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
 
   function removeGalleryItem(i: number) {
     set('gallery', (form.gallery ?? []).filter((_, idx) => idx !== i))
+  }
+
+  function addFaqItem() {
+    if (!faqDraft.q.trim() || !faqDraft.a.trim()) return
+    set('faq', [...(form.faq ?? []), { q: faqDraft.q.trim(), a: faqDraft.a.trim() }])
+    setFaqDraft({ q: '', a: '' })
+  }
+
+  function removeFaqItem(i: number) {
+    set('faq', (form.faq ?? []).filter((_, idx) => idx !== i))
   }
 
   function handleSave() {
@@ -195,7 +209,7 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="bricks">Brick count</Label>
                   <Input
@@ -210,6 +224,15 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
                   <Label htmlFor="minifigs">Minifigs</Label>
                   <Input id="minifigs" value={form.minifigs} onChange={(e) => set('minifigs', e.target.value)} />
                 </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="build_time">Build time</Label>
+                  <Input
+                    id="build_time"
+                    placeholder="e.g. 4–6h"
+                    value={form.build_time ?? ''}
+                    onChange={(e) => set('build_time', e.target.value || undefined)}
+                  />
+                </div>
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -220,6 +243,55 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
                   value={form.rating ?? ''}
                   onChange={(e) => set('rating', e.target.value || undefined)}
                 />
+              </div>
+
+              <Separator />
+
+              {/* FAQ */}
+              <div className="flex flex-col gap-3">
+                <Label>FAQ <span className="text-muted-foreground text-xs">(optional)</span></Label>
+
+                {(form.faq ?? []).length > 0 && (
+                  <div className="flex flex-col gap-2">
+                    {(form.faq ?? []).map((item, i) => (
+                      <div key={i} className="flex items-start gap-2 rounded-lg border bg-muted/30 p-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{item.q}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{item.a}</p>
+                        </div>
+                        <button
+                          onClick={() => removeFaqItem(i)}
+                          className="shrink-0 rounded-md p-1 hover:bg-muted transition-colors"
+                        >
+                          <XIcon className="size-3.5 text-muted-foreground" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-2 rounded-lg border border-dashed p-3">
+                  <Input
+                    placeholder="Question"
+                    value={faqDraft.q}
+                    onChange={(e) => setFaqDraft((d) => ({ ...d, q: e.target.value }))}
+                  />
+                  <Textarea
+                    placeholder="Answer"
+                    className="min-h-[72px] resize-y"
+                    value={faqDraft.a}
+                    onChange={(e) => setFaqDraft((d) => ({ ...d, a: e.target.value }))}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="self-end"
+                    onClick={addFaqItem}
+                    disabled={!faqDraft.q.trim() || !faqDraft.a.trim()}
+                  >
+                    Add FAQ item
+                  </Button>
+                </div>
               </div>
             </div>
           </TabsContent>
