@@ -22,7 +22,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
-import { type Product, type Tier, type ProductStatus, type FaqItem } from '@/data/products'
+import { type Product, type Tier, type ProductStatus } from '@/data/products'
 
 interface ProductEditDialogProps {
   product: Product | null
