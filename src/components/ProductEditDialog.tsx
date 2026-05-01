@@ -57,9 +57,11 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
   const [galleryInput, setGalleryInput] = useState('')
   const [faqDraft, setFaqDraft] = useState<{ q: string; a: string }>({ q: '', a: '' })
   const [coverDragging, setCoverDragging] = useState(false)
+  const [galleryDragging, setGalleryDragging] = useState(false)
   const [coverUploading, setCoverUploading] = useState(false)
   const [galleryUploading, setGalleryUploading] = useState(false)
   const coverInputRef = useRef<HTMLInputElement>(null)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!open) return
@@ -109,6 +111,20 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
   async function handleGalleryFile(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     e.target.value = ''
+    if (!files.length) return
+    setGalleryUploading(true)
+    try {
+      const urls = await Promise.all(files.map(uploadToStorage))
+      set('gallery', [...(form.gallery ?? []), ...urls])
+    } finally {
+      setGalleryUploading(false)
+    }
+  }
+
+  async function handleGalleryDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setGalleryDragging(false)
+    const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'))
     if (!files.length) return
     setGalleryUploading(true)
     try {
@@ -393,7 +409,17 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
                     ))}
 
                     {/* Add more slot */}
-                    <label className="rounded-lg border-2 border-dashed border-muted-foreground/25 aspect-square flex flex-col items-center justify-center gap-1 cursor-pointer hover:border-muted-foreground/50 hover:bg-muted/50 transition-colors">
+                    <label
+                      className={cn(
+                        'rounded-lg border-2 border-dashed aspect-square flex flex-col items-center justify-center gap-1 cursor-pointer transition-colors',
+                        galleryDragging
+                          ? 'border-primary bg-primary/5'
+                          : 'border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/50',
+                      )}
+                      onDragOver={(e) => { e.preventDefault(); setGalleryDragging(true) }}
+                      onDragLeave={() => setGalleryDragging(false)}
+                      onDrop={handleGalleryDrop}
+                    >
                       <ImagePlusIcon className="size-5 text-muted-foreground" />
                       <span className="text-xs text-muted-foreground">Add</span>
                       <input type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryFile} />
@@ -402,13 +428,23 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
                 )}
 
                 {(form.gallery ?? []).length === 0 && (
-                  <label className="rounded-xl border-2 border-dashed border-muted-foreground/25 py-8 flex flex-col items-center justify-center gap-2 cursor-pointer hover:border-muted-foreground/50 hover:bg-muted/50 transition-colors">
+                  <label
+                    className={cn(
+                      'rounded-xl border-2 border-dashed py-8 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors',
+                      galleryDragging
+                        ? 'border-primary bg-primary/5'
+                        : 'border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/50',
+                    )}
+                    onDragOver={(e) => { e.preventDefault(); setGalleryDragging(true) }}
+                    onDragLeave={() => setGalleryDragging(false)}
+                    onDrop={handleGalleryDrop}
+                  >
                     <ImagePlusIcon className="size-7 text-muted-foreground" />
                     <div className="text-center">
-                      <p className="text-sm font-medium">Add gallery images</p>
-                      <p className="text-xs text-muted-foreground">Click to upload multiple images</p>
+                      <p className="text-sm font-medium">Drop images here or click to upload</p>
+                      <p className="text-xs text-muted-foreground">PNG, JPG, WEBP — multiple allowed</p>
                     </div>
-                    <input type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryFile} />
+                    <input ref={galleryInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleGalleryFile} />
                   </label>
                 )}
 
