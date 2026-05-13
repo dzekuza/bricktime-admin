@@ -60,27 +60,15 @@ export function OrderDetailSheet({ order, open, onOpenChange, onStatusChange }: 
     setTimeout(() => setNoteSaved(false), 2000)
   }
 
-  function openMailto(subject: string, body: string) {
-    if (!order) return
-    const url = `mailto:${order.subscriberEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-    window.open(url, '_blank')
-  }
-
   function confirmAccept() {
     if (!order) return
     onStatusChange(order, 'returned', customerMessage.trim() || undefined)
-    const body = customerMessage.trim()
-      ? `Hi ${order.subscriberName},\n\nYour return request for "${order.productTitle}" has been approved.\n\n${customerMessage.trim()}\n\nBRICKTIME team`
-      : `Hi ${order.subscriberName},\n\nYour return request for "${order.productTitle}" has been approved.\n\nBRICKTIME team`
-    openMailto(`Your return has been approved — ${order.productTitle}`, body)
     onOpenChange(false)
   }
 
   function confirmDecline() {
     if (!order) return
     onStatusChange(order, 'return_declined', customerMessage.trim())
-    const body = `Hi ${order.subscriberName},\n\nUnfortunately your return request for "${order.productTitle}" has been declined.\n\n${customerMessage.trim()}\n\nBRICKTIME team`
-    openMailto(`Your return request — ${order.productTitle}`, body)
     onOpenChange(false)
   }
 
@@ -137,7 +125,7 @@ export function OrderDetailSheet({ order, open, onOpenChange, onStatusChange }: 
 
             {returnStep === 'accept' && (
               <div className="flex flex-col gap-2">
-                <p className="text-xs text-amber-700">Message to customer <span className="opacity-60">(optional — opens your email client)</span></p>
+                <p className="text-xs text-amber-700">Note to customer <span className="opacity-60">(optional — saved to their account)</span></p>
                 <Textarea
                   placeholder="e.g. Thanks for returning! Your prepaid label is on its way."
                   value={customerMessage}
@@ -151,7 +139,7 @@ export function OrderDetailSheet({ order, open, onOpenChange, onStatusChange }: 
                     className="flex-1 bg-green-600 hover:bg-green-700 text-white"
                     onClick={confirmAccept}
                   >
-                    Confirm &amp; send email
+                    Confirm acceptance
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => setReturnStep('actions')}>
                     Back
@@ -162,7 +150,7 @@ export function OrderDetailSheet({ order, open, onOpenChange, onStatusChange }: 
 
             {returnStep === 'decline' && (
               <div className="flex flex-col gap-2">
-                <p className="text-xs text-amber-700">Message to customer <span className="opacity-60">(opens your email client)</span></p>
+                <p className="text-xs text-amber-700">Note to customer <span className="opacity-60">(saved to their account)</span></p>
                 <Textarea
                   placeholder="e.g. Missing bricks detected — please ensure the set is complete before returning."
                   value={customerMessage}
@@ -178,7 +166,7 @@ export function OrderDetailSheet({ order, open, onOpenChange, onStatusChange }: 
                     disabled={!customerMessage.trim()}
                     onClick={confirmDecline}
                   >
-                    Decline &amp; send email
+                    Decline return
                   </Button>
                   <Button variant="ghost" size="sm" onClick={() => setReturnStep('actions')}>
                     Back
