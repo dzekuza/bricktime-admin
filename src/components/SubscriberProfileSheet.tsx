@@ -18,11 +18,7 @@ function noteKey(subId: string) {
   return `admin_note_subscriber_${subId}`
 }
 
-function penaltyKey(email: string) {
-  return `admin_penalty_${email}`
-}
-
-type Penalty = { amount: number; reason: string; setAt: string }
+type Penalty = { amount: number; reason: string }
 import { type Subscriber, type SubscriberStatus, planColors, subscriberStatusColors } from '@/data/subscribers'
 import { orderStatusColors, type OrderStatus } from '@/data/orders'
 import { supabase } from '@/lib/supabase'
@@ -80,11 +76,19 @@ export function SubscriberProfileSheet({
     if (subscriber) {
       setAdminNote(localStorage.getItem(noteKey(subscriber.id)) ?? '')
       setNoteSaved(false)
-      const stored = localStorage.getItem(penaltyKey(subscriber.email))
-      setPenalty(stored ? JSON.parse(stored) : null)
       setPenaltyStep('idle')
       setPenaltyAmount('')
       setPenaltyReason('')
+      supabase
+        .from('subscribers')
+        .select('penalty_amount, penalty_reason')
+        .eq('email', subscriber.email)
+        .maybeSingle()
+        .then(({ data }) => {
+          setPenalty(data?.penalty_amount != null
+            ? { amount: data.penalty_amount, reason: data.penalty_reason ?? '' }
+            : null)
+        })
     }
   }, [subscriber?.id])
 
@@ -95,23 +99,26 @@ export function SubscriberProfileSheet({
     setTimeout(() => setNoteSaved(false), 2000)
   }
 
-  function savePenalty() {
+  async function savePenalty() {
     if (!subscriber) return
-    const p: Penalty = {
-      amount: parseFloat(penaltyAmount),
-      reason: penaltyReason.trim(),
-      setAt: new Date().toISOString(),
-    }
-    localStorage.setItem(penaltyKey(subscriber.email), JSON.stringify(p))
-    setPenalty(p)
+    const amount = parseFloat(penaltyAmount)
+    const reason = penaltyReason.trim()
+    await supabaseAdmin
+      .from('subscribers')
+      .update({ penalty_amount: amount, penalty_reason: reason || null })
+      .eq('email', subscriber.email)
+    setPenalty({ amount, reason })
     setPenaltyStep('idle')
     setPenaltyAmount('')
     setPenaltyReason('')
   }
 
-  function clearPenalty() {
+  async function clearPenalty() {
     if (!subscriber) return
-    localStorage.removeItem(penaltyKey(subscriber.email))
+    await supabaseAdmin
+      .from('subscribers')
+      .update({ penalty_amount: null, penalty_reason: null })
+      .eq('email', subscriber.email)
     setPenalty(null)
   }
 
@@ -248,9 +255,6 @@ export function SubscriberProfileSheet({
               <div className="flex items-start justify-between gap-3">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-sm font-semibold text-destructive">€{penalty.amount.toFixed(2)} outstanding</span>
-                  <span className="text-xs text-muted-foreground">
-                    Set {new Date(penalty.setAt).toLocaleDateString()}
-                  </span>
                 </div>
                 <Button variant="ghost" size="sm" className="text-muted-foreground h-7 px-2 text-xs" onClick={clearPenalty}>
                   Clear
