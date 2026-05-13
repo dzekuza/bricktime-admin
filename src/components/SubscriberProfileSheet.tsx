@@ -68,9 +68,33 @@ export function SubscriberProfileSheet({
   const [adminNote, setAdminNote] = useState('')
   const [noteSaved, setNoteSaved] = useState(false)
   const [penalty, setPenalty] = useState<Penalty | null>(null)
+  const [penaltyHistory, setPenaltyHistory] = useState<Array<{
+    id: string; amount: number; reason: string | null; status: 'pending' | 'paid' | 'forgiven'; created_at: string; resolved_at: string | null
+  }>>([])
   const [penaltyStep, setPenaltyStep] = useState<'idle' | 'setting'>('idle')
   const [penaltyAmount, setPenaltyAmount] = useState('')
   const [penaltyReason, setPenaltyReason] = useState('')
+
+  function loadPenaltyData(email: string) {
+    supabase
+      .from('subscribers')
+      .select('penalty_amount, penalty_reason')
+      .eq('email', email)
+      .maybeSingle()
+      .then(({ data }) => {
+        setPenalty(data?.penalty_amount != null
+          ? { amount: data.penalty_amount, reason: data.penalty_reason ?? '' }
+          : null)
+      })
+    supabaseAdmin
+      .from('subscriber_penalties')
+      .select('id, amount, reason, status, created_at, resolved_at')
+      .eq('subscriber_email', email)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        setPenaltyHistory((data ?? []) as typeof penaltyHistory)
+      })
+  }
 
   useEffect(() => {
     if (subscriber) {
@@ -79,16 +103,7 @@ export function SubscriberProfileSheet({
       setPenaltyStep('idle')
       setPenaltyAmount('')
       setPenaltyReason('')
-      supabase
-        .from('subscribers')
-        .select('penalty_amount, penalty_reason')
-        .eq('email', subscriber.email)
-        .maybeSingle()
-        .then(({ data }) => {
-          setPenalty(data?.penalty_amount != null
-            ? { amount: data.penalty_amount, reason: data.penalty_reason ?? '' }
-            : null)
-        })
+      loadPenaltyData(subscriber.email)
     }
   }, [subscriber?.id])
 
@@ -103,23 +118,39 @@ export function SubscriberProfileSheet({
     if (!subscriber) return
     const amount = parseFloat(penaltyAmount)
     const reason = penaltyReason.trim()
-    await supabaseAdmin
-      .from('subscribers')
-      .update({ penalty_amount: amount, penalty_reason: reason || null })
-      .eq('email', subscriber.email)
+    await Promise.all([
+      supabaseAdmin
+        .from('subscribers')
+        .update({ penalty_amount: amount, penalty_reason: reason || null })
+        .eq('email', subscriber.email),
+      supabaseAdmin
+        .from('subscriber_penalties')
+        .insert({ subscriber_email: subscriber.email, amount, reason: reason || null }),
+    ])
     setPenalty({ amount, reason })
     setPenaltyStep('idle')
     setPenaltyAmount('')
     setPenaltyReason('')
+    loadPenaltyData(subscriber.email)
   }
 
   async function clearPenalty() {
     if (!subscriber) return
-    await supabaseAdmin
-      .from('subscribers')
-      .update({ penalty_amount: null, penalty_reason: null })
-      .eq('email', subscriber.email)
+    const pending = penaltyHistory.find((p) => p.status === 'pending')
+    await Promise.all([
+      supabaseAdmin
+        .from('subscribers')
+        .update({ penalty_amount: null, penalty_reason: null })
+        .eq('email', subscriber.email),
+      pending
+        ? supabaseAdmin
+            .from('subscriber_penalties')
+            .update({ status: 'forgiven', resolved_at: new Date().toISOString() })
+            .eq('id', pending.id)
+        : Promise.resolve(),
+    ])
     setPenalty(null)
+    loadPenaltyData(subscriber.email)
   }
 
   useEffect(() => {
@@ -311,6 +342,37 @@ export function SubscriberProfileSheet({
                 </Button>
               </div>
             </div>
+          )}
+
+          {/* Penalty history */}
+          {penaltyHistory.length > 0 && (
+            <>
+              <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Penalty history
+              </p>
+              <div className="flex flex-col gap-2">
+                {penaltyHistory.map((p) => (
+                  <div key={p.id} className="flex items-start justify-between gap-3 rounded-lg border px-3 py-2.5">
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <span className="text-sm font-semibold">€{Number(p.amount).toFixed(2)}</span>
+                      {p.reason && <span className="text-xs text-muted-foreground truncate">{p.reason}</span>}
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(p.created_at).toLocaleDateString()}
+                        {p.resolved_at && ` → ${new Date(p.resolved_at).toLocaleDateString()}`}
+                      </span>
+                    </div>
+                    <span className={[
+                      'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize',
+                      p.status === 'paid' && 'bg-green-100 text-green-700',
+                      p.status === 'forgiven' && 'bg-blue-100 text-blue-700',
+                      p.status === 'pending' && 'bg-red-100 text-red-700',
+                    ].filter(Boolean).join(' ')}>
+                      {p.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
 
           <Separator className="my-5" />
