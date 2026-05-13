@@ -9,6 +9,7 @@ import { Products } from '@/pages/Products'
 import { Subscribers } from '@/pages/Subscribers'
 import { Plans } from '@/pages/Plans'
 import { Orders } from '@/pages/Orders'
+import { Coupons } from '@/pages/Coupons'
 import { Settings } from '@/pages/Settings'
 
 export default function App() {
@@ -30,6 +31,7 @@ export default function App() {
               <Route path="/subscribers" element={<Subscribers />} />
               <Route path="/plans" element={<Plans />} />
               <Route path="/orders" element={<Orders />} />
+              <Route path="/coupons" element={<Coupons />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
           </Routes>

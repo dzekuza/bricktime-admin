@@ -8,6 +8,7 @@ import {
   SettingsIcon,
   BrickWallIcon,
   LogOutIcon,
+  TicketIcon,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import {
@@ -32,6 +33,7 @@ const navMain = [
   { label: 'Subscribers', to: '/subscribers', icon: UsersIcon },
   { label: 'Plans', to: '/plans', icon: CreditCardIcon },
   { label: 'Orders', to: '/orders', icon: ShoppingCartIcon },
+  { label: 'Coupons', to: '/coupons', icon: TicketIcon },
 ]
 
 const navSecondary = [
