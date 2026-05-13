@@ -9,6 +9,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
@@ -16,6 +17,12 @@ import { cn } from '@/lib/utils'
 function noteKey(subId: string) {
   return `admin_note_subscriber_${subId}`
 }
+
+function penaltyKey(subId: string) {
+  return `admin_penalty_subscriber_${subId}`
+}
+
+type Penalty = { amount: number; reason: string; setAt: string }
 import { type Subscriber, type SubscriberStatus, planColors, subscriberStatusColors } from '@/data/subscribers'
 import { orderStatusColors, type OrderStatus } from '@/data/orders'
 import { supabase } from '@/lib/supabase'
@@ -64,11 +71,20 @@ export function SubscriberProfileSheet({
   const [sheetOrders, setSheetOrders] = useState<SheetOrder[]>([])
   const [adminNote, setAdminNote] = useState('')
   const [noteSaved, setNoteSaved] = useState(false)
+  const [penalty, setPenalty] = useState<Penalty | null>(null)
+  const [penaltyStep, setPenaltyStep] = useState<'idle' | 'setting'>('idle')
+  const [penaltyAmount, setPenaltyAmount] = useState('')
+  const [penaltyReason, setPenaltyReason] = useState('')
 
   useEffect(() => {
     if (subscriber) {
       setAdminNote(localStorage.getItem(noteKey(subscriber.id)) ?? '')
       setNoteSaved(false)
+      const stored = localStorage.getItem(penaltyKey(subscriber.id))
+      setPenalty(stored ? JSON.parse(stored) : null)
+      setPenaltyStep('idle')
+      setPenaltyAmount('')
+      setPenaltyReason('')
     }
   }, [subscriber?.id])
 
@@ -77,6 +93,26 @@ export function SubscriberProfileSheet({
     localStorage.setItem(noteKey(subscriber.id), adminNote)
     setNoteSaved(true)
     setTimeout(() => setNoteSaved(false), 2000)
+  }
+
+  function savePenalty() {
+    if (!subscriber) return
+    const p: Penalty = {
+      amount: parseFloat(penaltyAmount),
+      reason: penaltyReason.trim(),
+      setAt: new Date().toISOString(),
+    }
+    localStorage.setItem(penaltyKey(subscriber.id), JSON.stringify(p))
+    setPenalty(p)
+    setPenaltyStep('idle')
+    setPenaltyAmount('')
+    setPenaltyReason('')
+  }
+
+  function clearPenalty() {
+    if (!subscriber) return
+    localStorage.removeItem(penaltyKey(subscriber.id))
+    setPenalty(null)
   }
 
   useEffect(() => {
@@ -202,6 +238,76 @@ export function SubscriberProfileSheet({
                 </Button>
               ))}
           </div>
+
+          <Separator className="my-5" />
+
+          {/* Penalty */}
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Penalty</p>
+          {penalty ? (
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 flex flex-col gap-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-semibold text-destructive">€{penalty.amount.toFixed(2)} outstanding</span>
+                  <span className="text-xs text-muted-foreground">
+                    Set {new Date(penalty.setAt).toLocaleDateString()}
+                  </span>
+                </div>
+                <Button variant="ghost" size="sm" className="text-muted-foreground h-7 px-2 text-xs" onClick={clearPenalty}>
+                  Clear
+                </Button>
+              </div>
+              {penalty.reason && (
+                <p className="text-sm text-muted-foreground border-t pt-3">{penalty.reason}</p>
+              )}
+            </div>
+          ) : penaltyStep === 'idle' ? (
+            <Button variant="outline" size="sm" onClick={() => setPenaltyStep('setting')}>
+              Set penalty
+            </Button>
+          ) : (
+            <div className="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Amount (€)</label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 15.00"
+                  value={penaltyAmount}
+                  onChange={(e) => setPenaltyAmount(e.target.value)}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Reason <span className="opacity-50">(optional)</span></label>
+                <Textarea
+                  placeholder="e.g. Missing bricks in returned set"
+                  rows={2}
+                  className="text-sm resize-none"
+                  value={penaltyReason}
+                  onChange={(e) => setPenaltyReason(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  className="flex-1"
+                  disabled={!penaltyAmount || parseFloat(penaltyAmount) <= 0}
+                  onClick={savePenalty}
+                >
+                  Apply penalty
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => { setPenaltyStep('idle'); setPenaltyAmount(''); setPenaltyReason('') }}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
 
           <Separator className="my-5" />
 
