@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import {
   Sheet,
   SheetContent,
@@ -9,10 +10,24 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
+import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+
+function noteKey(subId: string) {
+  return `admin_note_subscriber_${subId}`
+}
 import { type Subscriber, type SubscriberStatus, planColors, subscriberStatusColors } from '@/data/subscribers'
-import { orders } from '@/data/orders'
-import { orderStatusColors } from '@/data/orders'
+import { orderStatusColors, type OrderStatus } from '@/data/orders'
+import { supabase } from '@/lib/supabase'
+
+interface SheetOrder {
+  id: string
+  productTitle: string
+  startDate: string
+  dueDate: string
+  status: OrderStatus
+  amount: number
+}
 
 interface SubscriberProfileSheetProps {
   subscriber: Subscriber | null
@@ -46,10 +61,53 @@ export function SubscriberProfileSheet({
   onOpenChange,
   onStatusChange,
 }: SubscriberProfileSheetProps) {
+  const [sheetOrders, setSheetOrders] = useState<SheetOrder[]>([])
+  const [adminNote, setAdminNote] = useState('')
+  const [noteSaved, setNoteSaved] = useState(false)
+
+  useEffect(() => {
+    if (subscriber) {
+      setAdminNote(localStorage.getItem(noteKey(subscriber.id)) ?? '')
+      setNoteSaved(false)
+    }
+  }, [subscriber?.id])
+
+  function saveNote() {
+    if (!subscriber) return
+    localStorage.setItem(noteKey(subscriber.id), adminNote)
+    setNoteSaved(true)
+    setTimeout(() => setNoteSaved(false), 2000)
+  }
+
+  useEffect(() => {
+    if (!subscriber || !open) return
+    supabase
+      .from('orders')
+      .select('id, product_id, start_date, due_date, status, amount')
+      .eq('subscriber_id', subscriber.id)
+      .order('created_at', { ascending: false })
+      .then(async ({ data: orderRows }) => {
+        if (!orderRows?.length) { setSheetOrders([]); return }
+        const productIds = [...new Set(orderRows.map((o) => o.product_id))]
+        const { data: productRows } = await supabase
+          .from('products')
+          .select('id, title')
+          .in('id', productIds)
+        const productMap = Object.fromEntries((productRows ?? []).map((p) => [p.id, p.title]))
+        setSheetOrders(orderRows.map((o) => ({
+          id: o.id,
+          productTitle: productMap[o.product_id] ?? `Product #${o.product_id}`,
+          startDate: o.start_date,
+          dueDate: o.due_date,
+          status: o.status as OrderStatus,
+          amount: o.amount,
+        })))
+      })
+  }, [subscriber?.id, open])
+
   if (!subscriber) return null
 
-  const subOrders = orders.filter((o) => o.subscriberEmail === subscriber.email)
-  const totalSpent = subOrders.reduce((sum, o) => sum + o.amount, 0)
+  const totalSpent = sheetOrders.reduce((sum, o) => sum + o.amount, 0)
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -95,14 +153,14 @@ export function SubscriberProfileSheet({
           </div>
 
           {/* Rental history */}
-          {subOrders.length > 0 && (
+          {sheetOrders.length > 0 && (
             <>
               <Separator className="my-5" />
               <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Rental history ({subOrders.length})
+                Rental history ({sheetOrders.length})
               </p>
               <div className="flex flex-col gap-2">
-                {subOrders.map((order) => (
+                {sheetOrders.map((order) => (
                   <div
                     key={order.id}
                     className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5"
@@ -143,6 +201,23 @@ export function SubscriberProfileSheet({
                   {a.label}
                 </Button>
               ))}
+          </div>
+
+          <Separator className="my-5" />
+
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Admin note</p>
+          <Textarea
+            placeholder="Internal note — not visible to customer…"
+            rows={3}
+            className="text-sm resize-none"
+            value={adminNote}
+            onChange={(e) => { setAdminNote(e.target.value); setNoteSaved(false) }}
+          />
+          <div className="mt-2 flex items-center justify-end gap-2 pb-6">
+            {noteSaved && <span className="text-xs text-green-600">Saved</span>}
+            <Button size="sm" variant="outline" onClick={saveNote} disabled={noteSaved}>
+              Save note
+            </Button>
           </div>
         </div>
       </SheetContent>
