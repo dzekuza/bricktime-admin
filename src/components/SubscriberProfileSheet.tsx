@@ -21,7 +21,7 @@ function noteKey(subId: string) {
 type Penalty = { amount: number; reason: string }
 import { type Subscriber, type SubscriberStatus, planColors, subscriberStatusColors } from '@/data/subscribers'
 import { orderStatusColors, type OrderStatus } from '@/data/orders'
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseAdmin } from '@/lib/supabase'
 
 interface SheetOrder {
   id: string
