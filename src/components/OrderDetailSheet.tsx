@@ -41,14 +41,14 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 export function OrderDetailSheet({ order, open, onOpenChange, onStatusChange }: OrderDetailSheetProps) {
-  const [showDeclineInput, setShowDeclineInput] = useState(false)
-  const [declineNote, setDeclineNote] = useState('')
+  const [returnStep, setReturnStep] = useState<'actions' | 'accept' | 'decline'>('actions')
+  const [customerMessage, setCustomerMessage] = useState('')
   const [adminNote, setAdminNote] = useState('')
   const [noteSaved, setNoteSaved] = useState(false)
 
   useEffect(() => {
-    setShowDeclineInput(false)
-    setDeclineNote('')
+    setReturnStep('actions')
+    setCustomerMessage('')
     setAdminNote(order ? (localStorage.getItem(noteKey(order.id)) ?? '') : '')
     setNoteSaved(false)
   }, [order?.id])
@@ -58,6 +58,30 @@ export function OrderDetailSheet({ order, open, onOpenChange, onStatusChange }: 
     localStorage.setItem(noteKey(order.id), adminNote)
     setNoteSaved(true)
     setTimeout(() => setNoteSaved(false), 2000)
+  }
+
+  function openMailto(subject: string, body: string) {
+    if (!order) return
+    const url = `mailto:${order.subscriberEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    window.open(url, '_blank')
+  }
+
+  function confirmAccept() {
+    if (!order) return
+    onStatusChange(order, 'returned', customerMessage.trim() || undefined)
+    const body = customerMessage.trim()
+      ? `Hi ${order.subscriberName},\n\nYour return request for "${order.productTitle}" has been approved.\n\n${customerMessage.trim()}\n\nBRICKTIME team`
+      : `Hi ${order.subscriberName},\n\nYour return request for "${order.productTitle}" has been approved.\n\nBRICKTIME team`
+    openMailto(`Your return has been approved — ${order.productTitle}`, body)
+    onOpenChange(false)
+  }
+
+  function confirmDecline() {
+    if (!order) return
+    onStatusChange(order, 'return_declined', customerMessage.trim())
+    const body = `Hi ${order.subscriberName},\n\nUnfortunately your return request for "${order.productTitle}" has been declined.\n\n${customerMessage.trim()}\n\nBRICKTIME team`
+    openMailto(`Your return request — ${order.productTitle}`, body)
+    onOpenChange(false)
   }
 
   if (!order) return null
@@ -91,48 +115,73 @@ export function OrderDetailSheet({ order, open, onOpenChange, onStatusChange }: 
         {order.status === 'return_requested' && (
           <div className="mx-6 mb-4 flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
             <p className="text-sm font-semibold text-amber-800">Customer requested a return</p>
-            {!showDeclineInput ? (
+
+            {returnStep === 'actions' && (
               <div className="flex gap-2">
                 <Button
                   size="sm"
                   className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                  onClick={() => { onStatusChange(order, 'returned'); onOpenChange(false) }}
+                  onClick={() => { setCustomerMessage(''); setReturnStep('accept') }}
                 >
                   Accept return
                 </Button>
                 <Button
                   variant="destructive"
                   size="sm"
-                  onClick={() => setShowDeclineInput(true)}
+                  onClick={() => { setCustomerMessage(''); setReturnStep('decline') }}
                 >
                   Decline
                 </Button>
               </div>
-            ) : (
+            )}
+
+            {returnStep === 'accept' && (
               <div className="flex flex-col gap-2">
+                <p className="text-xs text-amber-700">Message to customer <span className="opacity-60">(optional — opens your email client)</span></p>
                 <Textarea
-                  placeholder="Reason for declining (e.g. missing bricks, damaged parts)…"
-                  value={declineNote}
-                  onChange={(e) => setDeclineNote(e.target.value)}
+                  placeholder="e.g. Thanks for returning! Your prepaid label is on its way."
+                  value={customerMessage}
+                  onChange={(e) => setCustomerMessage(e.target.value)}
                   rows={3}
-                  className="text-sm"
+                  className="text-sm bg-white"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                    onClick={confirmAccept}
+                  >
+                    Confirm &amp; send email
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setReturnStep('actions')}>
+                    Back
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {returnStep === 'decline' && (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs text-amber-700">Message to customer <span className="opacity-60">(opens your email client)</span></p>
+                <Textarea
+                  placeholder="e.g. Missing bricks detected — please ensure the set is complete before returning."
+                  value={customerMessage}
+                  onChange={(e) => setCustomerMessage(e.target.value)}
+                  rows={3}
+                  className="text-sm bg-white"
                 />
                 <div className="flex gap-2">
                   <Button
                     variant="destructive"
                     size="sm"
                     className="flex-1"
-                    disabled={!declineNote.trim()}
-                    onClick={() => { onStatusChange(order, 'return_declined', declineNote.trim()); onOpenChange(false) }}
+                    disabled={!customerMessage.trim()}
+                    onClick={confirmDecline}
                   >
-                    Decline return
+                    Decline &amp; send email
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => { setShowDeclineInput(false); setDeclineNote('') }}
-                  >
-                    Cancel
+                  <Button variant="ghost" size="sm" onClick={() => setReturnStep('actions')}>
+                    Back
                   </Button>
                 </div>
               </div>
@@ -140,10 +189,10 @@ export function OrderDetailSheet({ order, open, onOpenChange, onStatusChange }: 
           </div>
         )}
 
-        {/* Decline note (shown when declined) */}
+        {/* Message sent to customer when declined */}
         {order.returnNote && order.status === 'return_declined' && (
           <div className="mx-6 mb-4 rounded-lg border border-rose-200 bg-rose-50 p-4">
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-rose-600">Decline note</p>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-rose-600">Message sent to customer</p>
             <p className="text-sm text-rose-800">{order.returnNote}</p>
           </div>
         )}
