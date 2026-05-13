@@ -18,8 +18,8 @@ function noteKey(subId: string) {
   return `admin_note_subscriber_${subId}`
 }
 
-function penaltyKey(subId: string) {
-  return `admin_penalty_subscriber_${subId}`
+function penaltyKey(email: string) {
+  return `admin_penalty_${email}`
 }
 
 type Penalty = { amount: number; reason: string; setAt: string }
@@ -80,7 +80,7 @@ export function SubscriberProfileSheet({
     if (subscriber) {
       setAdminNote(localStorage.getItem(noteKey(subscriber.id)) ?? '')
       setNoteSaved(false)
-      const stored = localStorage.getItem(penaltyKey(subscriber.id))
+      const stored = localStorage.getItem(penaltyKey(subscriber.email))
       setPenalty(stored ? JSON.parse(stored) : null)
       setPenaltyStep('idle')
       setPenaltyAmount('')
@@ -102,7 +102,7 @@ export function SubscriberProfileSheet({
       reason: penaltyReason.trim(),
       setAt: new Date().toISOString(),
     }
-    localStorage.setItem(penaltyKey(subscriber.id), JSON.stringify(p))
+    localStorage.setItem(penaltyKey(subscriber.email), JSON.stringify(p))
     setPenalty(p)
     setPenaltyStep('idle')
     setPenaltyAmount('')
@@ -111,7 +111,7 @@ export function SubscriberProfileSheet({
 
   function clearPenalty() {
     if (!subscriber) return
-    localStorage.removeItem(penaltyKey(subscriber.id))
+    localStorage.removeItem(penaltyKey(subscriber.email))
     setPenalty(null)
   }
 
