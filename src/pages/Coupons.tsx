@@ -104,35 +104,48 @@ export function Coupons() {
 
   async function handleSave() {
     setSaving(true)
-    const payload = {
-      code: form.code.trim().toUpperCase(),
-      discount_type: form.discount_type,
-      discount_value: parseFloat(form.discount_value),
-      duration_months: form.duration_months ? parseInt(form.duration_months) : null,
-      max_uses: form.max_uses ? parseInt(form.max_uses) : null,
-      expires_at: form.expires_at ? new Date(form.expires_at).toISOString() : null,
-      active: form.active,
+    try {
+      const payload = {
+        code: form.code.trim().toUpperCase(),
+        discount_type: form.discount_type,
+        discount_value: parseFloat(form.discount_value),
+        duration_months: form.duration_months ? parseInt(form.duration_months) : null,
+        max_uses: form.max_uses ? parseInt(form.max_uses) : null,
+        expires_at: form.expires_at ? new Date(form.expires_at).toISOString() : null,
+        active: form.active,
+      }
+      if (editTarget) {
+        await supabaseAdmin.from('coupons').update(payload).eq('id', editTarget.id)
+      } else {
+        await supabaseAdmin.from('coupons').insert(payload)
+      }
+      setDialogOpen(false)
+      load()
+    } catch (err) {
+      console.error('Failed to save coupon:', err)
+    } finally {
+      setSaving(false)
     }
-    if (editTarget) {
-      await supabaseAdmin.from('coupons').update(payload).eq('id', editTarget.id)
-    } else {
-      await supabaseAdmin.from('coupons').insert(payload)
-    }
-    setSaving(false)
-    setDialogOpen(false)
-    load()
   }
 
   async function handleToggleActive(coupon: Coupon) {
-    await supabaseAdmin.from('coupons').update({ active: !coupon.active }).eq('id', coupon.id)
-    load()
+    try {
+      await supabaseAdmin.from('coupons').update({ active: !coupon.active }).eq('id', coupon.id)
+      load()
+    } catch (err) {
+      console.error('Failed to toggle coupon:', err)
+    }
   }
 
   async function handleDelete() {
     if (!deleteTarget) return
-    await supabaseAdmin.from('coupons').delete().eq('id', deleteTarget.id)
-    setDeleteTarget(null)
-    load()
+    try {
+      await supabaseAdmin.from('coupons').delete().eq('id', deleteTarget.id)
+      setDeleteTarget(null)
+      load()
+    } catch (err) {
+      console.error('Failed to delete coupon:', err)
+    }
   }
 
   const columns = useMemo<ColumnDef<Coupon>[]>(() => [
