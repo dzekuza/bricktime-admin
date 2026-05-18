@@ -11,6 +11,7 @@ import {
   TicketIcon,
   WrenchIcon,
   ShirtIcon,
+  GiftIcon,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import {
@@ -38,6 +39,7 @@ const navMain = [
   { label: 'Coupons', to: '/coupons', icon: TicketIcon },
   { label: 'Missing Parts', to: '/missing-parts', icon: WrenchIcon },
   { label: 'Merch', to: '/merch', icon: ShirtIcon },
+  { label: 'Gift Cards', to: '/gift-cards', icon: GiftIcon },
 ]
 
 const navSecondary = [

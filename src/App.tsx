@@ -12,6 +12,7 @@ import { Orders } from '@/pages/Orders'
 import { Coupons } from '@/pages/Coupons'
 import { MissingParts } from '@/pages/MissingParts'
 import { Merch } from '@/pages/Merch'
+import { GiftCards } from '@/pages/GiftCards'
 import { Settings } from '@/pages/Settings'
 
 export default function App() {
@@ -36,6 +37,7 @@ export default function App() {
               <Route path="/coupons" element={<Coupons />} />
               <Route path="/missing-parts" element={<MissingParts />} />
               <Route path="/merch" element={<Merch />} />
+              <Route path="/gift-cards" element={<GiftCards />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
           </Routes>
