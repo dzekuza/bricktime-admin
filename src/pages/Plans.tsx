@@ -1,349 +1,459 @@
-import { useState } from 'react'
-import { PencilIcon, CheckIcon, PlusIcon, XIcon } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { useState, useEffect } from 'react'
+import { PencilIcon, CheckIcon, PlusIcon, Trash2Icon } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Separator } from '@/components/ui/separator'
-import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { supabaseAdmin } from '@/lib/supabase'
 
-interface Plan {
+interface DbPlan {
   id: string
-  name: string
+  name: string | null
+  tagline: string | null
   price: number
-  budget: number
-  description: string
-  perks: string[]
+  annual_price: number | null
+  featured: boolean
+  active: boolean
+  sort_order: number
+  bg_color: string
+  text_color: string
+  perks: Array<{ label: string; included: boolean }>
   subscribers: number
-  color: string
-  badgeClass: string
 }
 
-const initialPlans: Plan[] = [
-  {
-    id: 'nano',
-    name: 'Nano',
-    price: 9,
-    budget: 50,
-    description: 'Perfect for casual builders — small sets from the base catalogue.',
-    perks: ['Access to Nano catalogue', 'Hold 1 product at a time', 'Free shipping', 'Basic support'],
-    subscribers: 142,
-    color: '#F5F1EB',
-    badgeClass: 'bg-secondary text-secondary-foreground',
-  },
-  {
-    id: 'mini',
-    name: 'Mini',
-    price: 14,
-    budget: 100,
-    description: 'A step up — medium sets and minifig access.',
-    perks: ['Access to Mini catalogue', 'Hold up to 2 products', 'Minifigs included', 'Free shipping', 'Email support'],
-    subscribers: 314,
-    color: '#FFAEE7',
-    badgeClass: 'bg-pink-100 text-pink-800',
-  },
-  {
-    id: 'standard',
-    name: 'Standard',
-    price: 24,
-    budget: 200,
-    description: 'Most popular — full access to the main catalogue.',
-    perks: ['Access to Standard catalogue', 'Hold up to 3 products', 'Minifigs included', 'Free shipping', 'Priority support'],
-    subscribers: 521,
-    color: '#FFD731',
-    badgeClass: 'bg-yellow-100 text-yellow-800',
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    price: 35,
-    budget: 400,
-    description: 'For serious builders — exclusive sets and early access.',
-    perks: ['Access to Pro catalogue', 'Hold up to 4 products', 'Exclusive minifigs', 'Free shipping', 'Priority support', 'Early access'],
-    subscribers: 218,
-    color: '#4DA2FF',
-    badgeClass: 'bg-blue-100 text-blue-800',
-  },
-  {
-    id: 'mega',
-    name: 'Mega',
-    price: 55,
-    budget: 600,
-    description: 'The full universe — every set, every perk.',
-    perks: ['Full catalogue access', 'Unlimited simultaneous products', 'All minifigs', 'Free express shipping', 'Dedicated support', 'Early access', 'Limited editions'],
-    subscribers: 89,
-    color: '#FB4903',
-    badgeClass: 'bg-orange-100 text-orange-800',
-  },
-]
-
-const BLANK_PLAN: Omit<Plan, 'id'> = {
-  name: '',
-  price: 0,
-  budget: 0,
-  description: '',
-  perks: [''],
-  subscribers: 0,
-  color: '#E2E8F0',
-  badgeClass: 'bg-secondary text-secondary-foreground',
-}
+type EditState = Omit<DbPlan, 'subscribers'>
 
 export function Plans() {
-  const [plans, setPlans] = useState<Plan[]>(initialPlans)
+  const [plans, setPlans] = useState<DbPlan[]>([])
+  const [loading, setLoading] = useState(true)
+  const [editPlan, setEditPlan] = useState<EditState | null>(null)
+  const [saving, setSaving] = useState(false)
 
-  const [editTarget, setEditTarget] = useState<Plan | null>(null)
-  const [editOpen, setEditOpen] = useState(false)
-  const [editPrice, setEditPrice] = useState('')
-  const [editBudget, setEditBudget] = useState('')
-
-  const [addOpen, setAddOpen] = useState(false)
-  const [addForm, setAddForm] = useState<Omit<Plan, 'id'>>(BLANK_PLAN)
-  const [newPerk, setNewPerk] = useState('')
-
-  function openEdit(plan: Plan) {
-    setEditTarget(plan)
-    setEditPrice(String(plan.price))
-    setEditBudget(String(plan.budget))
-    setEditOpen(true)
-  }
-
-  function handleSave() {
-    if (!editTarget) return
-    const price = Number(editPrice)
-    const budget = Number(editBudget)
-    if (!isNaN(price) && price > 0 && !isNaN(budget) && budget > 0) {
-      setPlans((prev) => prev.map((p) => p.id === editTarget.id ? { ...p, price, budget } : p))
+  useEffect(() => {
+    async function load() {
+      const [{ data: planRows }, { data: subRows }] = await Promise.all([
+        supabaseAdmin.from('plans').select('*').order('sort_order'),
+        supabaseAdmin.from('subscribers').select('plan').eq('status', 'active'),
+      ])
+      const subCountMap: Record<string, number> = {}
+      for (const s of subRows ?? []) {
+        subCountMap[s.plan] = (subCountMap[s.plan] ?? 0) + 1
+      }
+      setPlans(
+        (planRows ?? []).map((p) => ({
+          ...p,
+          perks: Array.isArray(p.perks) ? p.perks : [],
+          subscribers: subCountMap[p.id] ?? 0,
+        }))
+      )
+      setLoading(false)
     }
-    setEditOpen(false)
+    load()
+  }, [])
+
+  function openEdit(plan: DbPlan) {
+    setEditPlan({ ...plan, perks: plan.perks.map((p) => ({ ...p })) })
   }
 
-  function openAdd() {
-    setAddForm(BLANK_PLAN)
-    setNewPerk('')
-    setAddOpen(true)
+  async function handleSave() {
+    if (!editPlan) return
+    setSaving(true)
+    const { error } = await supabaseAdmin
+      .from('plans')
+      .update({
+        name: editPlan.name,
+        tagline: editPlan.tagline,
+        price: editPlan.price,
+        annual_price: editPlan.annual_price,
+        featured: editPlan.featured,
+        active: editPlan.active,
+        bg_color: editPlan.bg_color,
+        text_color: editPlan.text_color,
+        perks: editPlan.perks,
+      })
+      .eq('id', editPlan.id)
+    setSaving(false)
+    if (error) { console.error('Save failed:', error.message); return }
+    setPlans((prev) =>
+      prev.map((p) => p.id === editPlan.id ? { ...p, ...editPlan } : p)
+    )
+    setEditPlan(null)
   }
 
-  function handleAddPerk() {
-    if (!newPerk.trim()) return
-    setAddForm((prev) => ({ ...prev, perks: [...prev.perks.filter(Boolean), newPerk.trim()] }))
-    setNewPerk('')
+  async function toggleActive(plan: DbPlan) {
+    const next = !plan.active
+    const { error } = await supabaseAdmin
+      .from('plans')
+      .update({ active: next })
+      .eq('id', plan.id)
+    if (error) { console.error('Toggle failed:', error.message); return }
+    setPlans((prev) => prev.map((p) => p.id === plan.id ? { ...p, active: next } : p))
   }
 
-  function removePerk(i: number) {
-    setAddForm((prev) => ({ ...prev, perks: prev.perks.filter((_, idx) => idx !== i) }))
-  }
-
-  function handleAddPlan() {
-    const id = addForm.name.toLowerCase().replace(/\s+/g, '-')
-    setPlans((prev) => [...prev, { ...addForm, id, perks: addForm.perks.filter(Boolean) }])
-    setAddOpen(false)
-  }
-
+  const activePlans = plans.filter((p) => p.active)
   const totalSubscribers = plans.reduce((sum, p) => sum + p.subscribers, 0)
   const totalMrr = plans.reduce((sum, p) => sum + p.price * p.subscribers, 0)
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+    <>
+      <div className="flex flex-col gap-6">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Plans</h1>
-          <p className="text-muted-foreground text-sm">
-            {totalSubscribers} subscribers · €{totalMrr.toLocaleString()} MRR
+          <p className="text-sm text-muted-foreground">
+            {loading
+              ? 'Loading…'
+              : `${activePlans.length} active plans · ${totalSubscribers} subscribers · €${totalMrr.toLocaleString()} MRR`}
           </p>
         </div>
-        <Button onClick={openAdd}>
-          <PlusIcon data-icon="inline-start" />
-          Add plan
-        </Button>
+
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {loading
+            ? Array.from({ length: 6 }).map((_, i) => (
+                <Card key={i} className="animate-pulse overflow-hidden py-0">
+                  <div className="h-24 bg-muted" />
+                  <CardContent className="pt-5">
+                    <div className="h-8 w-1/3 rounded bg-muted" />
+                    <div className="mt-4 space-y-2">
+                      {Array.from({ length: 4 }).map((_, j) => (
+                        <div key={j} className="h-4 rounded bg-muted" />
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            : plans.map((plan) => (
+                <Card
+                  key={plan.id}
+                  className={[
+                    'flex flex-col overflow-hidden py-0 transition-opacity',
+                    !plan.active && 'opacity-50',
+                  ].join(' ')}
+                >
+                  {/* Coloured header strip */}
+                  <div
+                    className="flex items-start justify-between gap-3 px-6 py-5"
+                    style={{ background: plan.bg_color, color: plan.text_color }}
+                  >
+                    <div className="flex flex-col gap-1">
+                      <span className="font-mono text-xs tracking-[.18em] uppercase opacity-70">
+                        {plan.id}
+                      </span>
+                      <span className="text-2xl font-bold leading-none">
+                        {plan.name ?? plan.id}
+                      </span>
+                      {plan.tagline && (
+                        <span className="mt-1 text-sm opacity-80">{plan.tagline}</span>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {plan.featured && (
+                        <Badge
+                          className="font-mono text-[10px] tracking-[.08em] uppercase"
+                          style={{ background: 'rgba(0,0,0,.25)', color: plan.text_color, border: 'none' }}
+                        >
+                          Popular
+                        </Badge>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 hover:bg-black/10"
+                        style={{ color: plan.text_color }}
+                        onClick={() => openEdit(plan)}
+                      >
+                        <PencilIcon className="size-3.5" />
+                        <span className="sr-only">Edit plan</span>
+                      </Button>
+                    </div>
+                  </div>
+
+                  <CardContent className="flex flex-1 flex-col gap-4 px-6 py-5">
+                    {/* Price */}
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-3xl font-bold">€{plan.price}</span>
+                      <span className="text-sm text-muted-foreground">/mo</span>
+                      {plan.annual_price && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          €{plan.annual_price} annual
+                        </span>
+                      )}
+                    </div>
+
+                    <Separator />
+
+                    {/* Perks */}
+                    <ul className="flex flex-col gap-1.5">
+                      {plan.perks.filter((p) => p.included).map((perk) => (
+                        <li key={perk.label} className="flex items-start gap-2 text-sm">
+                          <CheckIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                          {perk.label}
+                        </li>
+                      ))}
+                    </ul>
+
+                    {/* Footer */}
+                    <div className="mt-auto flex items-center justify-between border-t pt-3 text-sm text-muted-foreground">
+                      <span>{plan.subscribers} active</span>
+                      <div className="flex items-center gap-3">
+                        <span>€{(plan.price * plan.subscribers).toLocaleString()} MRR</span>
+                        <button
+                          onClick={() => toggleActive(plan)}
+                          className={[
+                            'font-mono text-[11px] tracking-[.06em] uppercase transition-colors',
+                            plan.active
+                              ? 'text-green-600 hover:text-red-500'
+                              : 'text-red-400 hover:text-green-600',
+                          ].join(' ')}
+                        >
+                          {plan.active ? 'Active' : 'Inactive'}
+                        </button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+        </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {plans.map((plan) => (
-          <Card key={plan.id} className="flex flex-col">
-            <CardHeader className="flex flex-row items-start justify-between gap-4">
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <span
-                    className="size-3 rounded-full border border-black/10"
-                    style={{ background: plan.color }}
-                  />
-                  <CardTitle className="text-base">{plan.name}</CardTitle>
-                  <Badge className={cn('text-xs', plan.badgeClass)}>{plan.id}</Badge>
-                </div>
-                <CardDescription className="text-sm">{plan.description}</CardDescription>
-              </div>
-              <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={() => openEdit(plan)}>
-                <PencilIcon className="size-3.5" />
-                <span className="sr-only">Edit {plan.name}</span>
-              </Button>
-            </CardHeader>
+      {/* Full plan edit sheet */}
+      <Sheet open={!!editPlan} onOpenChange={(open) => { if (!open) setEditPlan(null) }}>
+        <SheetContent className="flex flex-col gap-0 overflow-y-auto sm:max-w-md">
+          <SheetHeader className="border-b px-6 py-5">
+            <SheetTitle>Edit plan — {editPlan?.name ?? editPlan?.id}</SheetTitle>
+          </SheetHeader>
 
-            <CardContent className="flex flex-1 flex-col gap-4">
-              <div className="flex items-end justify-between gap-3">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl font-bold">€{plan.price}</span>
-                  <span className="text-sm text-muted-foreground">/mo</span>
+          {editPlan && (
+            <div className="flex flex-col gap-5 px-6 py-5">
+              {/* Identity */}
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <Label>Name</Label>
+                  <Input
+                    value={editPlan.name ?? ''}
+                    onChange={(e) =>
+                      setEditPlan((p) => p && { ...p, name: e.target.value })
+                    }
+                  />
                 </div>
-                <div
-                  className="flex items-center gap-1.5 rounded-full border px-3 py-1"
-                  style={{ background: plan.color, borderColor: 'rgba(0,0,0,0.12)' }}
-                >
-                  <span className="text-xs font-semibold text-foreground">€{plan.budget}</span>
-                  <span className="text-xs text-muted-foreground">budget</span>
+                <div className="flex flex-col gap-1.5">
+                  <Label>Tagline</Label>
+                  <Input
+                    value={editPlan.tagline ?? ''}
+                    onChange={(e) =>
+                      setEditPlan((p) => p && { ...p, tagline: e.target.value || null })
+                    }
+                    placeholder="Optional"
+                  />
                 </div>
               </div>
 
               <Separator />
 
-              <ul className="flex flex-col gap-1.5">
-                {plan.perks.map((perk) => (
-                  <li key={perk} className="flex items-center gap-2 text-sm">
-                    <CheckIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                    {perk}
-                  </li>
-                ))}
-              </ul>
+              {/* Pricing */}
+              <div className="flex flex-col gap-3">
+                <p className="text-sm font-medium">Pricing</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Monthly (€)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      step={0.01}
+                      value={editPlan.price}
+                      onChange={(e) =>
+                        setEditPlan((p) => p && { ...p, price: Number(e.target.value) })
+                      }
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Annual (€)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      step={0.01}
+                      value={editPlan.annual_price ?? ''}
+                      onChange={(e) =>
+                        setEditPlan((p) =>
+                          p && {
+                            ...p,
+                            annual_price: e.target.value ? Number(e.target.value) : null,
+                          }
+                        )
+                      }
+                      placeholder="Optional"
+                    />
+                  </div>
+                </div>
+              </div>
 
-              <div className="mt-auto pt-2 flex items-center justify-between text-sm text-muted-foreground border-t">
-                <span>{plan.subscribers} subscribers</span>
-                <span>€{(plan.price * plan.subscribers).toLocaleString()} MRR</span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              <Separator />
 
-      {/* Edit dialog */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Edit {editTarget?.name} plan</DialogTitle>
-            <DialogDescription>Update the monthly price and rental budget.</DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-4 py-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="edit-price">Monthly price (€)</Label>
-              <Input
-                id="edit-price"
-                type="number"
-                min={1}
-                value={editPrice}
-                onChange={(e) => setEditPrice(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="edit-budget">Rental budget (€/mo)</Label>
-              <p className="text-xs text-muted-foreground -mt-0.5">
-                How much subscribers can spend on active rentals at once.
-              </p>
-              <Input
-                id="edit-budget"
-                type="number"
-                min={1}
-                value={editBudget}
-                onChange={(e) => setEditBudget(e.target.value)}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              {/* Appearance */}
+              <div className="flex flex-col gap-3">
+                <p className="text-sm font-medium">Appearance</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Background</Label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={editPlan.bg_color}
+                        onChange={(e) =>
+                          setEditPlan((p) => p && { ...p, bg_color: e.target.value })
+                        }
+                        className="h-9 w-10 cursor-pointer rounded border border-input bg-transparent p-0.5"
+                      />
+                      <Input
+                        value={editPlan.bg_color}
+                        onChange={(e) =>
+                          setEditPlan((p) => p && { ...p, bg_color: e.target.value })
+                        }
+                        className="font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Text color</Label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={editPlan.text_color}
+                        onChange={(e) =>
+                          setEditPlan((p) => p && { ...p, text_color: e.target.value })
+                        }
+                        className="h-9 w-10 cursor-pointer rounded border border-input bg-transparent p-0.5"
+                      />
+                      <Input
+                        value={editPlan.text_color}
+                        onChange={(e) =>
+                          setEditPlan((p) => p && { ...p, text_color: e.target.value })
+                        }
+                        className="font-mono text-xs"
+                      />
+                    </div>
+                  </div>
+                </div>
+                {/* Live preview strip */}
+                <div
+                  className="rounded-lg px-4 py-3 text-sm font-semibold"
+                  style={{ background: editPlan.bg_color, color: editPlan.text_color }}
+                >
+                  {editPlan.name ?? editPlan.id}
+                </div>
+              </div>
 
-      {/* Add plan dialog */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add plan</DialogTitle>
-            <DialogDescription>Create a new subscription tier.</DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-4 py-2">
-            <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-3 flex flex-col gap-1.5">
-                <Label htmlFor="plan-name">Name</Label>
-                <Input
-                  id="plan-name"
-                  placeholder="e.g. Ultra"
-                  value={addForm.name}
-                  onChange={(e) => setAddForm((p) => ({ ...p, name: e.target.value }))}
-                />
+              <Separator />
+
+              {/* Settings */}
+              <div className="flex flex-col gap-3">
+                <p className="text-sm font-medium">Settings</p>
+                <div className="flex items-center justify-between">
+                  <Label>Featured (Popular badge)</Label>
+                  <Switch
+                    checked={editPlan.featured}
+                    onCheckedChange={(v) =>
+                      setEditPlan((p) => p && { ...p, featured: v })
+                    }
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label>Active</Label>
+                  <Switch
+                    checked={editPlan.active}
+                    onCheckedChange={(v) =>
+                      setEditPlan((p) => p && { ...p, active: v })
+                    }
+                  />
+                </div>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="plan-price">Price (€/mo)</Label>
-                <Input
-                  id="plan-price"
-                  type="number"
-                  min={1}
-                  placeholder="0"
-                  value={addForm.price || ''}
-                  onChange={(e) => setAddForm((p) => ({ ...p, price: Number(e.target.value) }))}
-                />
-              </div>
-              <div className="col-span-2 flex flex-col gap-1.5">
-                <Label htmlFor="plan-budget">Rental budget (€/mo)</Label>
-                <Input
-                  id="plan-budget"
-                  type="number"
-                  min={1}
-                  placeholder="0"
-                  value={addForm.budget || ''}
-                  onChange={(e) => setAddForm((p) => ({ ...p, budget: Number(e.target.value) }))}
-                />
-              </div>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="plan-desc">Description</Label>
-              <Input
-                id="plan-desc"
-                placeholder="Short description for this plan"
-                value={addForm.description}
-                onChange={(e) => setAddForm((p) => ({ ...p, description: e.target.value }))}
-              />
-            </div>
-            <Separator />
-            <div className="flex flex-col gap-2">
-              <Label>Perks</Label>
-              {addForm.perks.filter(Boolean).map((perk, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="flex-1 text-sm rounded-md border px-3 py-2 bg-muted/40">{perk}</span>
-                  <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={() => removePerk(i)}>
-                    <XIcon className="size-3.5" />
+
+              <Separator />
+
+              {/* Features / perks */}
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium">Features</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() =>
+                      setEditPlan((p) =>
+                        p && { ...p, perks: [...p.perks, { label: '', included: true }] }
+                      )
+                    }
+                  >
+                    <PlusIcon className="size-3.5" />
+                    Add
                   </Button>
                 </div>
-              ))}
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Add a perk…"
-                  value={newPerk}
-                  onChange={(e) => setNewPerk(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddPerk())}
-                />
-                <Button variant="outline" size="sm" onClick={handleAddPerk}>Add</Button>
+                <div className="flex flex-col gap-2">
+                  {editPlan.perks.map((perk, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <Switch
+                        checked={perk.included}
+                        onCheckedChange={(v) =>
+                          setEditPlan((p) =>
+                            p && {
+                              ...p,
+                              perks: p.perks.map((pk, idx) =>
+                                idx === i ? { ...pk, included: v } : pk
+                              ),
+                            }
+                          )
+                        }
+                      />
+                      <Input
+                        className="flex-1 text-sm"
+                        value={perk.label}
+                        onChange={(e) =>
+                          setEditPlan((p) =>
+                            p && {
+                              ...p,
+                              perks: p.perks.map((pk, idx) =>
+                                idx === i ? { ...pk, label: e.target.value } : pk
+                              ),
+                            }
+                          )
+                        }
+                        placeholder="Feature description"
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+                        onClick={() =>
+                          setEditPlan((p) =>
+                            p && { ...p, perks: p.perks.filter((_, idx) => idx !== i) }
+                          )
+                        }
+                      >
+                        <Trash2Icon className="size-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+          )}
+
+          <SheetFooter className="mt-auto border-t px-6 py-4">
             <Button
-              onClick={handleAddPlan}
-              disabled={!addForm.name.trim() || addForm.price <= 0 || addForm.budget <= 0}
+              variant="outline"
+              onClick={() => setEditPlan(null)}
+              disabled={saving}
             >
-              Create plan
+              Cancel
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving…' : 'Save changes'}
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
+    </>
   )
 }

@@ -29,6 +29,9 @@ export interface Product {
   story?: StorySection | null
   minifig?: MinifigSection | null
   compatibility?: CompatItem[]
+  release_date?: string | null
+  early_access_tiers?: string[]
+  early_access_hours?: number
 }
 
 export const products: Product[] = []

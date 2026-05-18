@@ -1,4 +1,4 @@
-export type OrderStatus = 'active' | 'returned' | 'overdue' | 'processing'
+export type OrderStatus = 'active' | 'returned' | 'overdue' | 'processing' | 'return_requested' | 'return_declined'
 
 export interface Order {
   id: string
@@ -10,6 +10,7 @@ export interface Order {
   startDate: string
   dueDate: string
   amount: number
+  returnNote?: string
 }
 
 export const orders: Order[] = [
@@ -28,4 +29,6 @@ export const orderStatusColors: Record<OrderStatus, string> = {
   returned: 'bg-secondary text-secondary-foreground',
   overdue: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
   processing: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+  return_requested: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+  return_declined: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
 }

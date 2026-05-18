@@ -54,6 +54,9 @@ const BLANK: Omit<Product, 'id'> = {
   story: null,
   minifig: null,
   compatibility: [],
+  release_date: null,
+  early_access_tiers: [],
+  early_access_hours: 48,
 }
 
 export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId = 0 }: ProductEditDialogProps) {
@@ -670,6 +673,70 @@ export function ProductEditDialog({ product, open, onOpenChange, onSave, nextId 
           {/* ── Settings tab ─────────────────────────────────────────── */}
           <TabsContent value="settings" className="flex-1 overflow-y-auto px-6 py-5">
             <div className="flex flex-col gap-5">
+
+              {/* Release schedule */}
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label>Release date &amp; time</Label>
+                  <Input
+                    type="datetime-local"
+                    value={form.release_date ? form.release_date.slice(0, 16) : ''}
+                    onChange={(e) =>
+                      set('release_date', e.target.value ? new Date(e.target.value).toISOString() : null)
+                    }
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Leave blank to publish immediately. Set a future date to schedule the drop.
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <Label>Early access</Label>
+                  <div className="flex flex-col gap-2">
+                    {(['nano', 'mini', 'standard', 'mega', 'mystery_s', 'mystery_m'] as const).map((t) => {
+                      const labels: Record<string, string> = {
+                        nano: 'Mėgėjas', mini: 'Kūrėjas', standard: 'Masteris',
+                        mega: 'Legenda', mystery_s: 'Mystery Box S', mystery_m: 'Mystery Box M',
+                      }
+                      const checked = (form.early_access_tiers ?? []).includes(t)
+                      return (
+                        <label key={t} className="flex items-center gap-2 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() =>
+                              set(
+                                'early_access_tiers',
+                                checked
+                                  ? (form.early_access_tiers ?? []).filter((x) => x !== t)
+                                  : [...(form.early_access_tiers ?? []), t]
+                              )
+                            }
+                            className="rounded border-border"
+                          />
+                          <span className="text-sm capitalize">{labels[t]}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      max={168}
+                      className="w-24"
+                      value={form.early_access_hours ?? 48}
+                      onChange={(e) => set('early_access_hours', Number(e.target.value))}
+                    />
+                    <span className="text-sm text-muted-foreground">hours before public release</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Selected tiers can see this product before the public release date.
+                  </p>
+                </div>
+              </div>
+              <Separator />
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5">
                   <Label>Required tier</Label>

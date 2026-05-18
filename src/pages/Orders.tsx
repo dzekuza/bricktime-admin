@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { MoreHorizontalIcon, SearchIcon } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Button } from '@/components/ui/button'
@@ -21,16 +21,52 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { orders as initialOrders, orderStatusColors, type Order, type OrderStatus } from '@/data/orders'
+import { orderStatusColors, type Order, type OrderStatus } from '@/data/orders'
+import { supabaseAdmin } from '@/lib/supabase'
 import { DataTable, SortableHeader, selectionColumn } from '@/components/DataTable'
 import { OrderDetailSheet } from '@/components/OrderDetailSheet'
 
 export function Orders() {
-  const [items, setItems] = useState<Order[]>(initialOrders)
+  const [items, setItems] = useState<Order[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [detailTarget, setDetailTarget] = useState<Order | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
+
+  useEffect(() => {
+    async function load() {
+      const [
+        { data: orderRows },
+        { data: subRows },
+        { data: productRows },
+      ] = await Promise.all([
+        supabaseAdmin.from('orders').select('*').order('created_at', { ascending: false }),
+        supabaseAdmin.from('subscribers').select('id, name, email'),
+        supabaseAdmin.from('products').select('id, title'),
+      ])
+
+      const subMap = Object.fromEntries((subRows ?? []).map((s) => [s.id, s]))
+      const productMap = Object.fromEntries((productRows ?? []).map((p) => [p.id, p]))
+
+      if (orderRows) {
+        setItems(orderRows.map((o) => ({
+          id: o.id,
+          subscriberName: subMap[o.subscriber_id]?.name ?? o.subscriber_id,
+          subscriberEmail: subMap[o.subscriber_id]?.email ?? '',
+          productTitle: productMap[o.product_id]?.title ?? `Product #${o.product_id}`,
+          productId: o.product_id,
+          status: o.status as OrderStatus,
+          startDate: o.start_date,
+          dueDate: o.due_date,
+          amount: o.amount,
+          returnNote: o.return_note ?? undefined,
+        })))
+      }
+      setLoading(false)
+    }
+    load()
+  }, [])
 
   const filtered = useMemo(() => items.filter((o) => {
     const q = search.toLowerCase()
@@ -44,6 +80,7 @@ export function Orders() {
 
   const active = items.filter((o) => o.status === 'active').length
   const overdue = items.filter((o) => o.status === 'overdue').length
+  const pendingReturns = items.filter((o) => o.status === 'return_requested').length
   const revenue = items.filter((o) => o.status !== 'returned').reduce((sum, o) => sum + o.amount, 0)
 
   function openDetail(order: Order) {
@@ -51,9 +88,15 @@ export function Orders() {
     setDetailOpen(true)
   }
 
-  function handleSetStatus(ids: string[], status: OrderStatus) {
-    setItems((prev) => prev.map((o) => ids.includes(o.id) ? { ...o, status } : o))
-    setDetailTarget((prev) => prev && ids.includes(prev.id) ? { ...prev, status } : prev)
+  async function handleSetStatus(ids: string[], status: OrderStatus, note?: string) {
+    const { error } = await supabaseAdmin
+      .from('orders')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .update({ status, updated_at: new Date().toISOString(), ...(note !== undefined ? { return_note: note } : {}) } as any)
+      .in('id', ids)
+    if (error) { console.error('Status update failed:', error.message); return }
+    setItems((prev) => prev.map((o) => ids.includes(o.id) ? { ...o, status, ...(note !== undefined ? { returnNote: note } : {}) } : o))
+    setDetailTarget((prev) => prev && ids.includes(prev.id) ? { ...prev, status, ...(note !== undefined ? { returnNote: note } : {}) } : prev)
   }
 
   const columns = useMemo<ColumnDef<Order, unknown>[]>(() => [
@@ -137,6 +180,19 @@ export function Orders() {
               <DropdownMenuGroup>
                 <DropdownMenuItem onSelect={() => openDetail(order)}>View details</DropdownMenuItem>
               </DropdownMenuGroup>
+              {order.status === 'return_requested' && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem onSelect={() => handleSetStatus([order.id], 'returned')}>
+                      Accept return
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => openDetail(order)}>
+                      Decline return…
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuGroup>
                 {order.status !== 'active' && (
@@ -160,11 +216,11 @@ export function Orders() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Orders</h1>
-        <p className="text-muted-foreground text-sm">{items.length} total rentals</p>
+        <p className="text-muted-foreground text-sm">{loading ? 'Loading…' : `${items.length} total rentals`}</p>
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Active rentals</CardTitle>
@@ -177,6 +233,14 @@ export function Orders() {
           </CardHeader>
           <CardContent>
             <div className={cn('text-2xl font-bold', overdue > 0 && 'text-destructive')}>{overdue}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Pending returns</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className={cn('text-2xl font-bold', pendingReturns > 0 && 'text-amber-600')}>{pendingReturns}</div>
           </CardContent>
         </Card>
         <Card>
@@ -206,6 +270,8 @@ export function Orders() {
             <SelectItem value="processing">Processing</SelectItem>
             <SelectItem value="returned">Returned</SelectItem>
             <SelectItem value="overdue">Overdue</SelectItem>
+            <SelectItem value="return_requested">Return requested</SelectItem>
+            <SelectItem value="return_declined">Return declined</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -237,7 +303,7 @@ export function Orders() {
         order={detailTarget}
         open={detailOpen}
         onOpenChange={setDetailOpen}
-        onStatusChange={(order, status) => handleSetStatus([order.id], status)}
+        onStatusChange={(order, status, note) => handleSetStatus([order.id], status, note)}
       />
     </div>
   )

@@ -24,7 +24,7 @@ import { tierColors, statusColors, type Product, type Tier, type ProductStatus }
 import { DataTable, SortableHeader, selectionColumn } from '@/components/DataTable'
 import { ProductEditDialog } from '@/components/ProductEditDialog'
 import { DeleteDialog } from '@/components/DeleteDialog'
-import { supabase } from '@/lib/supabase'
+import { supabase, supabaseAdmin } from '@/lib/supabase'
 
 export function Products() {
   const [items, setItems] = useState<Product[]>([])
@@ -43,9 +43,10 @@ export function Products() {
   useEffect(() => {
     supabase
       .from('products')
-      .select('id, title, subtitle, description, category, year, bricks, minifigs, build_time, value, rating, tier, status, image_url, gallery, faq, bags, story, minifig, compatibility')
+      .select('id, title, subtitle, description, category, year, bricks, minifigs, build_time, value, rating, tier, status, image_url, gallery, faq, bags, story, minifig, compatibility, release_date, early_access_tiers, early_access_hours')
       .order('id')
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) console.error('Failed to load products:', error.message)
         if (data) setItems(data as Product[])
         setLoading(false)
       })
@@ -63,10 +64,12 @@ export function Products() {
   async function handleSave(updated: Product) {
     const { id, ...fields } = updated
     if (items.some((p) => p.id === id)) {
-      await supabase.from('products').update(fields).eq('id', id)
+      const { error } = await supabaseAdmin.from('products').update(fields).eq('id', id)
+      if (error) { console.error('Update failed:', error.message); return }
       setItems((prev) => prev.map((p) => p.id === id ? updated : p))
     } else {
-      const { data } = await supabase.from('products').insert({ id, ...fields }).select().single()
+      const { data, error } = await supabaseAdmin.from('products').insert({ id, ...fields }).select().single()
+      if (error) { console.error('Insert failed:', error.message); return }
       if (data) setItems((prev) => [data as Product, ...prev])
     }
   }
@@ -74,17 +77,20 @@ export function Products() {
   async function handleDuplicate(product: Product) {
     const maxId = Math.max(...items.map((p) => p.id))
     const newProduct = { ...product, id: maxId + 1, title: `${product.title} (copy)`, status: 'available' as ProductStatus }
-    const { data } = await supabase.from('products').insert(newProduct).select().single()
+    const { data, error } = await supabaseAdmin.from('products').insert(newProduct).select().single()
+    if (error) { console.error('Duplicate failed:', error.message); return }
     if (data) setItems((prev) => [data as Product, ...prev])
   }
 
   async function handleSetStatus(ids: number[], status: ProductStatus) {
-    await supabase.from('products').update({ status }).in('id', ids)
+    const { error } = await supabaseAdmin.from('products').update({ status }).in('id', ids)
+    if (error) { console.error('Status update failed:', error.message); return }
     setItems((prev) => prev.map((p) => ids.includes(p.id) ? { ...p, status } : p))
   }
 
   async function handleDelete(ids: number[]) {
-    await supabase.from('products').delete().in('id', ids)
+    const { error } = await supabaseAdmin.from('products').delete().in('id', ids)
+    if (error) { console.error('Delete failed:', error.message); return }
     setItems((prev) => prev.filter((p) => !ids.includes(p.id)))
   }
 

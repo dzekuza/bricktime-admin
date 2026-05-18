@@ -14,10 +14,16 @@ export function Settings() {
   const [newSubscriberAlert, setNewSubscriberAlert] = useState(true)
   const [overdueAlert, setOverdueAlert] = useState(true)
   const [savedGeneral, setSavedGeneral] = useState(false)
+  const [savedNotifications, setSavedNotifications] = useState(false)
 
   function handleSaveGeneral() {
     setSavedGeneral(true)
     setTimeout(() => setSavedGeneral(false), 2000)
+  }
+
+  function handleSaveNotifications() {
+    setSavedNotifications(true)
+    setTimeout(() => setSavedNotifications(false), 2000)
   }
 
   return (
@@ -112,6 +118,14 @@ export function Settings() {
                   />
                 </div>
               ))}
+              <div className="flex items-center gap-3 pt-2">
+                <Button onClick={handleSaveNotifications}>
+                  {savedNotifications ? 'Saved!' : 'Save changes'}
+                </Button>
+                {savedNotifications && (
+                  <Badge variant="outline" className="text-green-600 border-green-200">Changes saved</Badge>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

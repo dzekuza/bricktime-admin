@@ -1,13 +1,17 @@
+import { useState, useEffect } from 'react'
 import { PackageIcon, UsersIcon, CreditCardIcon, TrendingUpIcon } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { supabaseAdmin } from '@/lib/supabase'
 
-const stats = [
-  { label: 'Total Products', value: '26', change: '+2 this month', icon: PackageIcon },
-  { label: 'Active Subscribers', value: '1,284', change: '+48 this week', icon: UsersIcon },
-  { label: 'Monthly Revenue', value: '€18,420', change: '+12.4% vs last month', icon: CreditCardIcon },
-  { label: 'Avg. Rating', value: '4.84', change: 'Across all sets', icon: TrendingUpIcon },
-]
+const PLAN_PRICES: Record<string, number> = { nano: 7, mini: 12, standard: 19, pro: 28, mega: 49 }
+
+interface Stat {
+  label: string
+  value: string
+  change: string
+  icon: React.ComponentType<{ className?: string }>
+}
 
 const recentActivity = [
   { text: 'Mailbox row added to catalogue', time: '2 hours ago', type: 'product' },
@@ -18,6 +22,43 @@ const recentActivity = [
 ]
 
 export function Dashboard() {
+  const [stats, setStats] = useState<Stat[]>([
+    { label: 'Total Products', value: '—', change: '', icon: PackageIcon },
+    { label: 'Active Subscribers', value: '—', change: '', icon: UsersIcon },
+    { label: 'Monthly Revenue', value: '—', change: '', icon: CreditCardIcon },
+    { label: 'Avg. Rating', value: '—', change: 'Across all sets', icon: TrendingUpIcon },
+  ])
+
+  useEffect(() => {
+    async function load() {
+      const [
+        { count: productCount },
+        { data: activeSubs },
+        { data: ratedProducts },
+      ] = await Promise.all([
+        supabaseAdmin.from('products').select('id', { count: 'exact', head: true }),
+        supabaseAdmin.from('subscribers').select('plan').eq('status', 'active'),
+        supabaseAdmin.from('products').select('rating').not('rating', 'is', null),
+      ])
+
+      const mrr = (activeSubs ?? []).reduce((sum, s) => sum + (PLAN_PRICES[s.plan] ?? 0), 0)
+      const ratings = (ratedProducts ?? [])
+        .map((p) => parseFloat(p.rating ?? '0'))
+        .filter((r) => r > 0)
+      const avgRating = ratings.length
+        ? (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(2)
+        : '—'
+
+      setStats([
+        { label: 'Total Products', value: String(productCount ?? 0), change: '', icon: PackageIcon },
+        { label: 'Active Subscribers', value: (activeSubs?.length ?? 0).toLocaleString(), change: '', icon: UsersIcon },
+        { label: 'Monthly Revenue', value: `€${mrr.toLocaleString()}`, change: '', icon: CreditCardIcon },
+        { label: 'Avg. Rating', value: avgRating, change: 'Across all sets', icon: TrendingUpIcon },
+      ])
+    }
+    load()
+  }, [])
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -25,7 +66,6 @@ export function Dashboard() {
         <p className="text-muted-foreground text-sm">Welcome back. Here's what's happening.</p>
       </div>
 
-      {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
           <Card key={stat.label}>
@@ -35,13 +75,12 @@ export function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground mt-1">{stat.change}</p>
+              {stat.change && <p className="text-xs text-muted-foreground mt-1">{stat.change}</p>}
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Recent activity */}
       <Card>
         <CardHeader>
           <CardTitle>Recent Activity</CardTitle>

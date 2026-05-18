@@ -238,6 +238,8 @@ export type Database = {
           minifigs: string
           rating: string | null
           release_date: string | null
+          early_access_tiers: string[]
+          early_access_hours: number
           status: Database["public"]["Enums"]["product_status"]
           subtitle: string
           tier: Database["public"]["Enums"]["plan_tier"]
@@ -268,6 +270,8 @@ export type Database = {
           minifigs?: string
           rating?: string | null
           release_date?: string | null
+          early_access_tiers?: string[]
+          early_access_hours?: number
           status?: Database["public"]["Enums"]["product_status"]
           subtitle?: string
           tier: Database["public"]["Enums"]["plan_tier"]
@@ -298,6 +302,8 @@ export type Database = {
           minifigs?: string
           rating?: string | null
           release_date?: string | null
+          early_access_tiers?: string[]
+          early_access_hours?: number
           status?: Database["public"]["Enums"]["product_status"]
           subtitle?: string
           tier?: Database["public"]["Enums"]["plan_tier"]

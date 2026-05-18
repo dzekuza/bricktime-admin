@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { MoreHorizontalIcon, SearchIcon, Trash2Icon } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Button } from '@/components/ui/button'
@@ -23,12 +23,14 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import {
-  subscribers as initialSubscribers,
   planColors,
   subscriberStatusColors,
   type Subscriber,
   type SubscriberStatus,
 } from '@/data/subscribers'
+import { supabaseAdmin } from '@/lib/supabase'
+
+const PLAN_PRICES: Record<string, number> = { nano: 7, mini: 12, standard: 19, pro: 28, mega: 49 }
 import { DataTable, SortableHeader, selectionColumn } from '@/components/DataTable'
 import { DeleteDialog } from '@/components/DeleteDialog'
 import { SubscriberProfileSheet } from '@/components/SubscriberProfileSheet'
@@ -38,7 +40,8 @@ function initials(name: string) {
 }
 
 export function Subscribers() {
-  const [items, setItems] = useState<Subscriber[]>(initialSubscribers)
+  const [items, setItems] = useState<Subscriber[]>([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [planFilter, setPlanFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -46,6 +49,35 @@ export function Subscribers() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [profileTarget, setProfileTarget] = useState<Subscriber | null>(null)
   const [profileOpen, setProfileOpen] = useState(false)
+
+  useEffect(() => {
+    async function load() {
+      const [{ data: subs }, { data: orderRows }] = await Promise.all([
+        supabaseAdmin.from('subscribers').select('*').order('joined_at', { ascending: false }),
+        supabaseAdmin.from('orders').select('subscriber_id'),
+      ])
+
+      const countMap: Record<string, number> = {}
+      for (const o of orderRows ?? []) {
+        countMap[o.subscriber_id] = (countMap[o.subscriber_id] ?? 0) + 1
+      }
+
+      if (subs) {
+        setItems(subs.map((s) => ({
+          id: s.id,
+          name: s.name,
+          email: s.email,
+          plan: s.plan as Subscriber['plan'],
+          status: s.status as SubscriberStatus,
+          joined: s.joined_at.split('T')[0],
+          monthlySpend: s.status === 'active' ? (PLAN_PRICES[s.plan] ?? 0) : 0,
+          setsRented: countMap[s.id] ?? 0,
+        })))
+      }
+      setLoading(false)
+    }
+    load()
+  }, [])
 
   const filtered = useMemo(() => items.filter((s) => {
     const q = search.toLowerCase()
@@ -65,20 +97,27 @@ export function Subscribers() {
     setProfileOpen(true)
   }
 
-  function handleSetStatus(ids: string[], status: SubscriberStatus) {
+  async function handleSetStatus(ids: string[], status: SubscriberStatus) {
+    const { error } = await supabaseAdmin
+      .from('subscribers')
+      .update({ status, updated_at: new Date().toISOString() })
+      .in('id', ids)
+    if (error) { console.error('Status update failed:', error.message); return }
     setItems((prev) => prev.map((s) =>
       ids.includes(s.id)
-        ? { ...s, status, monthlySpend: status === 'cancelled' || status === 'paused' ? 0 : s.monthlySpend }
+        ? { ...s, status, monthlySpend: status === 'cancelled' || status === 'paused' ? 0 : PLAN_PRICES[s.plan] ?? 0 }
         : s
     ))
     setProfileTarget((prev) =>
       prev && ids.includes(prev.id)
-        ? { ...prev, status, monthlySpend: status === 'cancelled' || status === 'paused' ? 0 : prev.monthlySpend }
+        ? { ...prev, status, monthlySpend: status === 'cancelled' || status === 'paused' ? 0 : PLAN_PRICES[prev.plan] ?? 0 }
         : prev
     )
   }
 
-  function handleDelete(ids: string[]) {
+  async function handleDelete(ids: string[]) {
+    const { error } = await supabaseAdmin.from('subscribers').delete().in('id', ids)
+    if (error) { console.error('Delete failed:', error.message); return }
     setItems((prev) => prev.filter((s) => !ids.includes(s.id)))
   }
 
@@ -198,7 +237,7 @@ export function Subscribers() {
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Subscribers</h1>
-        <p className="text-muted-foreground text-sm">{items.length} total members</p>
+        <p className="text-muted-foreground text-sm">{loading ? 'Loading…' : `${items.length} total members`}</p>
       </div>
 
       {/* Stats */}
