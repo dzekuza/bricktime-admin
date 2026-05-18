@@ -47,7 +47,7 @@ export function MissingParts() {
           subscriberName: subMap[r.subscriber_id]?.name ?? r.subscriber_id,
           subscriberEmail: subMap[r.subscriber_id]?.email ?? '',
           productTitle: prodMap[r.product_id]?.title ?? `#${r.product_id}`,
-        }))
+        })) as unknown as MissingPartRequest[]
       )
       setLoading(false)
     })

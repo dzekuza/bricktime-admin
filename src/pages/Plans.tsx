@@ -10,8 +10,10 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { supabaseAdmin } from '@/lib/supabase'
 
+type PlanId = 'nano' | 'mini' | 'standard' | 'pro' | 'mega' | 'mystery_s' | 'mystery_m'
+
 interface DbPlan {
-  id: string
+  id: PlanId
   name: string | null
   tagline: string | null
   price: number
@@ -46,9 +48,9 @@ export function Plans() {
       setPlans(
         (planRows ?? []).map((p) => ({
           ...p,
-          perks: Array.isArray(p.perks) ? p.perks : [],
+          perks: (Array.isArray(p.perks) ? p.perks : []) as Array<{ label: string; included: boolean }>,
           subscribers: subCountMap[p.id] ?? 0,
-        }))
+        })) as DbPlan[]
       )
       setLoading(false)
     }

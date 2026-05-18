@@ -47,7 +47,7 @@ export function Products() {
       .order('id')
       .then(({ data, error }) => {
         if (error) console.error('Failed to load products:', error.message)
-        if (data) setItems(data as Product[])
+        if (data) setItems(data as unknown as Product[])
         setLoading(false)
       })
   }, [])
@@ -63,23 +63,26 @@ export function Products() {
 
   async function handleSave(updated: Product) {
     const { id, ...fields } = updated
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dbFields = fields as any
     if (items.some((p) => p.id === id)) {
-      const { error } = await supabaseAdmin.from('products').update(fields).eq('id', id)
+      const { error } = await supabaseAdmin.from('products').update(dbFields).eq('id', id)
       if (error) { console.error('Update failed:', error.message); return }
       setItems((prev) => prev.map((p) => p.id === id ? updated : p))
     } else {
-      const { data, error } = await supabaseAdmin.from('products').insert({ id, ...fields }).select().single()
+      const { data, error } = await supabaseAdmin.from('products').insert({ id, ...dbFields }).select().single()
       if (error) { console.error('Insert failed:', error.message); return }
-      if (data) setItems((prev) => [data as Product, ...prev])
+      if (data) setItems((prev) => [data as unknown as Product, ...prev])
     }
   }
 
   async function handleDuplicate(product: Product) {
     const maxId = Math.max(...items.map((p) => p.id))
     const newProduct = { ...product, id: maxId + 1, title: `${product.title} (copy)`, status: 'available' as ProductStatus }
-    const { data, error } = await supabaseAdmin.from('products').insert(newProduct).select().single()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await supabaseAdmin.from('products').insert(newProduct as any).select().single()
     if (error) { console.error('Duplicate failed:', error.message); return }
-    if (data) setItems((prev) => [data as Product, ...prev])
+    if (data) setItems((prev) => [data as unknown as Product, ...prev])
   }
 
   async function handleSetStatus(ids: number[], status: ProductStatus) {

@@ -60,7 +60,7 @@ const emptyForm = (): CouponForm => ({
 function couponToForm(c: Coupon): CouponForm {
   return {
     code: c.code,
-    discount_type: c.discount_type,
+    discount_type: c.discount_type as 'percentage' | 'fixed',
     duration_months: c.duration_months != null ? String(c.duration_months) : '',
     discount_value: String(c.discount_value),
     max_uses: c.max_uses != null ? String(c.max_uses) : '',
