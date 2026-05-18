@@ -11,6 +11,7 @@ import { Plans } from '@/pages/Plans'
 import { Orders } from '@/pages/Orders'
 import { Coupons } from '@/pages/Coupons'
 import { MissingParts } from '@/pages/MissingParts'
+import { Merch } from '@/pages/Merch'
 import { Settings } from '@/pages/Settings'
 
 export default function App() {
@@ -34,6 +35,7 @@ export default function App() {
               <Route path="/orders" element={<Orders />} />
               <Route path="/coupons" element={<Coupons />} />
               <Route path="/missing-parts" element={<MissingParts />} />
+              <Route path="/merch" element={<Merch />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
           </Routes>
